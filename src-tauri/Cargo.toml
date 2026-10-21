@@ -1,0 +1,19 @@
+[package]
+name = "scriptureflow"
+version = "0.1.0"
+description = "Lampstand - free, open-source church software that puts every scripture on screen as it is preached"
+edition = "2021"
+
+[lib]
+name = "scriptureflow_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+ort = "2.0.0-rc.15"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }

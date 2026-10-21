@@ -1,0 +1,64 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Lampstand",
+  "version": "0.1.0",
+  "identifier": "org.scriptureflow.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Lampstand",
+        "width": 1100,
+        "height": 660,
+        "minWidth": 760,
+        "minHeight": 480,
+        "maximized": true,
+        "decorations": false
+      },
+      {
+        "label": "output",
+        "title": "Lampstand Output",
+        "url": "index.html?view=output",
+        "width": 960,
+        "height": 540,
+        "visible": false,
+        "decorations": false,
+        "skipTaskbar": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "models/bark/*": "models/bark/",
+      "llm/*": "llm/"
+    },
+    "publisher": "Lampstand",
+    "shortDescription": "AI scripture display for live services",
+    "longDescription": "Free, open-source scripture projection that listens to the preacher and puts the right verse on screen.",
+    "copyright": "Free and open source",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false
+      }
+    }
+  }
+}

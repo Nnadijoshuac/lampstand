@@ -1,0 +1,14 @@
+node_modules
+dist
+src-tauri/target
+src-tauri/models
+samples
+*.log
+src-tauri/llm
+release
+design
+tests/sermon/*.wav
+website/node_modules
+website/dist
+.tmp*
+*.eval.test.ts

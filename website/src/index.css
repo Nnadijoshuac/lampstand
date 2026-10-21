@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+/* Black and cream, like the app. */
+:root, :root[data-theme='dark'] {
+  --bg: #050505;
+  --panel: #0c0c0b;
+  --fg: #f4eedf;
+  --dim: #b9b2a2;
+  --muted: #7d776a;
+  --line: rgba(244, 238, 223, 0.1);
+  --gold: #e3c17a;
+  color-scheme: dark;
+}
+:root[data-theme='light'] {
+  --bg: #f4eedf;
+  --panel: #ede5d1;
+  --fg: #14161d;
+  --dim: #4f4a40;
+  --muted: #827a69;
+  --line: rgba(20, 22, 29, 0.12);
+  --gold: #9a7023;
+  color-scheme: light;
+}
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+::selection { background: var(--gold); color: #050505; }
