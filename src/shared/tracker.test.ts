@@ -10,7 +10,7 @@ const TEXT: Record<string, string> = {
   '58:1:4': 'But let patience have her perfect work, that ye may be perfect and entire, wanting nothing.',
   '58:1:5': 'If any of you lack wisdom, let him ask of God, that giveth to all men liberally, and upbraideth not; and it shall be given him.'
 }
-const COUNT: Record<string, number> = { '11:23': 37, '0:3': 24, '44:8': 39, '19:2': 22, '19:20': 30, '61:1': 10, '57:3': 19, '57:11': 40, '42:2': 25, '42:3': 36, '58:1': 27 }
+const COUNT: Record<string, number> = { '61:4': 21, '42:4': 54, '11:23': 37, '0:3': 24, '44:8': 39, '19:2': 22, '19:20': 30, '61:1': 10, '57:3': 19, '57:11': 40, '42:2': 25, '42:3': 36, '58:1': 27 }
 const bible = {
   verseText: (b: number, c: number, v: number) => TEXT[`${b}:${c}:${v}`] ?? 'filler words here',
   chapterVerseCount: (b: number, c: number) => COUNT[`${b}:${c}`] ?? 0
@@ -258,5 +258,19 @@ describe('spoken at home after the service', () => {
     say(t, 'second kings')
     say(t, 'Tony three vs one.')
     expect(t.passage).toMatchObject({ book: 11, chapter: 23, current: 1 })
+  })
+})
+
+describe('counting points is not navigation', () => {
+  it('"the fourth thing I ask you to stand is"', () => expect(findIntent('the fourth thing i ask you to stand is')).toBeUndefined())
+  it('"jump to the thirteenth one" still moves', () => expect(findIntent('jump to the thirteenth one')).toEqual({ kind: 'verse', verse: 13, end: undefined }))
+})
+
+describe('sibling books', () => {
+  it('"for John for eight" while 1 John 4 is open means 1 John 4:8', () => {
+    const { t } = make()
+    say(t, 'first john chapter four')
+    say(t, 'for John for eight')
+    expect(t.passage).toMatchObject({ book: 61, chapter: 4, current: 8 })
   })
 })

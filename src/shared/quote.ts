@@ -128,14 +128,15 @@ export class QuoteIndex {
 
   /**
    * The verse of an open chapter being read out. The chapter is already on screen, so less evidence is needed:
-   * "he that loveth not, knoweth not God" is 1 John 4:8 once 1 John 4 is open.
+   * "he that loveth not, knoweth not God" is 1 John 4:8 once 1 John 4 is open. `strict` (three words) is for
+   * chapters named earlier in the service rather than the one on screen.
    */
-  inChapter(sentence: string, book: number, chapter: number): QuoteHit | undefined {
+  inChapter(sentence: string, book: number, chapter: number, strict = false): QuoteHit | undefined {
     const where = this.positions(sentence)
     if (where.size < 2) return
     const hits = (this.chapters.get(`${book}:${chapter}`) ?? [])
       .map((i) => this.measure(i, where))
-      .filter((h): h is QuoteHit => !!h && h.matched >= 2 && h.runs >= 1 && (h.coverage >= 0.3 || h.matched >= 4))
+      .filter((h): h is QuoteHit => !!h && h.matched >= (strict ? 3 : 2) && h.runs >= 1 && (h.coverage >= 0.3 || h.matched >= 4))
       .sort((a, b) => b.score - a.score)
     const [best, next] = hits
     return best && (!next || best.score >= next.score * 1.2) ? best : undefined

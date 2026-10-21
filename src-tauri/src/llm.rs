@@ -38,6 +38,20 @@ impl Llm {
     }
 }
 
+/// Physical memory installed, in GB.
+#[cfg(windows)]
+pub fn total_memory_gb() -> Option<f64> {
+    use windows::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
+    let mut m = MEMORYSTATUSEX { dwLength: std::mem::size_of::<MEMORYSTATUSEX>() as u32, ..Default::default() };
+    unsafe { GlobalMemoryStatusEx(&mut m) }.ok()?;
+    Some(m.ullTotalPhys as f64 / 1_073_741_824.0)
+}
+
+#[cfg(not(windows))]
+pub fn total_memory_gb() -> Option<f64> {
+    None
+}
+
 impl Drop for Llm {
     fn drop(&mut self) {
         let _ = self.child.kill();

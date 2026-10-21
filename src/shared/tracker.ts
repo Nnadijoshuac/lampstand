@@ -1,4 +1,8 @@
 import { findReferences, findVerseOnly, normalize } from './reference'
+import { BOOKS } from './books'
+
+/** "1 John" and "John" share a name; recognisers often drop the number. */
+const baseName = (book: number) => BOOKS[book]?.name.replace(/^\d /, '')
 
 export interface VerseLookup {
   verseText(book: number, chapter: number, verse: number): string | undefined
@@ -77,8 +81,11 @@ export function findIntent(text: string): Intent | undefined {
   if (ch && ch[1] && ch[1].length >= 4 && !SAME_BOOK.test(ch[1])) return
   if (ch) return { kind: 'chapter', chapter: +ch[2], verse: ch[3] ? +ch[3] : undefined }
   const explicit = t.match(/\bverses? (\d+)(?: (?:to|through|and) (\d+))?\b/)
-  const vs = explicit ?? (MOVE.test(t) ? t.match(/\b(?:the|number) (\d+)(?: 1| verse)?\b/) : null)
-  if (vs && (explicit || MOVE.test(t) || n <= 4)) return { kind: 'verse', verse: +vs[1], end: vs[2] ? +vs[2] : undefined }
+  // "Jump to the thirteenth one" is navigation; "the fourth thing I ask you to stand" is not. Without the word
+  // "verse", a bare number needs a short sentence with a real navigation verb.
+  const go = n <= 8 && /\b(go|jump|move|skip|back|show|turn)\b/.test(t)
+  const vs = explicit ?? (go || n <= 4 ? t.match(/\b(?:the|number) (\d+)(?: 1| verse)?\b/) : null)
+  if (vs) return { kind: 'verse', verse: +vs[1], end: vs[2] ? +vs[2] : undefined }
   if (/\b(where we started|from the (top|beginning)|back to the (top|beginning|start))\b/.test(t)) return { kind: 'start' }
 }
 
@@ -120,6 +127,9 @@ export class VerseTracker {
     const refs = findReferences(text)
     if (refs.length) {
       const r = refs[refs.length - 1]
+      // "First John chapter four" is open and they say "(first) John four eight": they mean the open book.
+      const open0 = this.passage
+      if (open0 && open0.book !== r.book && open0.chapter === r.chapter && baseName(open0.book) === baseName(r.book)) r.book = open0.book
       let count = this.bible.chapterVerseCount(r.book, r.chapter)
       // "Proverb2027": chapter and verse run together. Split where both exist, preferring the longer chapter.
       if (count === 0 && r.start === undefined && r.chapter >= 100) {

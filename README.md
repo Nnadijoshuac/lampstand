@@ -2,11 +2,13 @@
 
 <h1 align="center">Lampstand</h1>
 
-<p align="center"><b>Every scripture on screen, the moment it's preached.</b><br/>
-Free, open-source church presentation software that listens to the sermon and puts each verse on the projector by itself.<br/>
-Runs entirely on the church computer: no internet, no API keys, no subscription.</p>
+<p align="center"><b>Scripture on screen, as it's preached.</b><br/>
+Free, open-source church software that listens to the sermon and puts each verse on the projector by itself.<br/>
+It runs on the church computer. Nothing is sent anywhere and there is nothing to pay for.</p>
 
-<p align="center"><a href="../../releases/latest">Download for Windows</a> · <a href="#build-from-source">Build from source</a></p>
+<p align="center"><a href="https://nnadijoshuac.github.io/lampstand/">Website</a> · <a href="../../releases/latest">Download for Windows</a> · <a href="#build-from-source">Build from source</a></p>
+
+<p align="center"><img src="docs/screenshot.png" alt="Lampstand following a sermon: the verse being read is on the projector preview" /></p>
 
 ---
 

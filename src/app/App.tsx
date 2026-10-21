@@ -188,6 +188,8 @@ export function App() {
   /** Finds verses quoted word for word, instantly; built from the KJV after start-up. */
   const quoteRef = useRef<QuoteIndex>()
   const lastFinal = useRef({ text: '', at: 0 })
+  /** Chapters the preacher has named in this service, newest first: the sermon's own passages. */
+  const namedChapters = useRef<{ book: number; chapter: number }[]>([])
   const listenerRef = useRef<Listener>()
   useEffect(() => { void aiReady().then(setAiOk) }, [])
   const heldRef = useRef(false)
@@ -391,7 +393,9 @@ export function App() {
     if (latestSeq()) setHits(hits.slice(0, 5))
 
     // A verified AI recall is precise: use it straight away.
-    if (fromAi.length) { trace(`ai verified ${refLabel(fromAi[0])} overlap ${fromAi[0].overlap.toFixed(2)}`); return { hits, pick: fromAi[0].overlap >= 0.5 ? fromAi[0] : undefined, sure: fromAi[0].overlap >= 0.5 } }
+    // Quotes are caught earlier by the quote index; what reaches here is a loose description, so only a close match
+    // goes up by itself ("be led by the Spirit" in a sermon title is not Romans 8:14 being read). The rest are suggestions.
+    if (fromAi.length) { trace(`ai verified ${refLabel(fromAi[0])} overlap ${fromAi[0].overlap.toFixed(2)}`); return { hits, pick: fromAi[0].overlap >= 0.7 ? fromAi[0] : undefined, sure: fromAi[0].overlap >= 0.7 } }
 
     // Otherwise let the AI choose among search results, but only act on a choice the words clearly support.
     const top = searchHits[0]
@@ -436,6 +440,7 @@ export function App() {
     const before = t.passage
     t.feed(text)
     const opened = t.passage !== before && findReferences(text).length > 0
+    if (opened && t.passage) namedChapters.current = [{ book: t.passage.book, chapter: t.passage.chapter }, ...namedChapters.current.filter((c) => c.book !== t.passage!.book || c.chapter !== t.passage!.chapter)].slice(0, 6)
     if (opened) { namedAt.current = Date.now(); resumeAutopilot(); pendingHistory.current = true; recentFinals.current = []; setHits([]); setLive(true); return }
     if (before && t.passage !== before) return
 
@@ -508,10 +513,11 @@ export function App() {
    * The preacher is quoting a verse, or reading further down the chapter that is open. Strong word-for-word evidence,
    * so it may override the protection after a named reference (they named 2 Kings 23 but read 2 Kings 20:3).
    */
-  function followQuote(text: string): boolean {
+  function followQuote(text: string, live = false): boolean {
     const q = quoteRef.current, t = trackerRef.current
     const prev = lastFinal.current
-    lastFinal.current = { text, at: Date.now() }
+    // `live`: the sentence is still being spoken (an interim result), so the quote can go up before it ends.
+    if (!live) lastFinal.current = { text, at: Date.now() }
     if (!q || !t || heldRef.current) return false
     const joined = Date.now() - prev.at < 8000 ? prev.text + ' ' + text : text
     const p = t.passage
@@ -521,6 +527,18 @@ export function App() {
       if (near && Math.abs(near.verse - p.current) >= 2) {
         trace(`reading ${refLabel(near)} further down the open chapter`)
         t.goto(near.verse)
+        return true
+      }
+    }
+    // A passage named earlier in the sermon beats a look-alike elsewhere ("praying always with all prayer and
+    // supplication" is Ephesians 6:18 in a sermon on Ephesians 6, not Solomon's prayer in 1 Kings 8).
+    for (const c of namedChapters.current) {
+      if (p && c.book === p.book && c.chapter === p.chapter) continue
+      const h = q.inChapter(joined, c.book, c.chapter, true)
+      if (h) {
+        trace(`quoted ${refLabel(h)} from a passage named earlier`)
+        openHit({ book: h.book, chapter: h.chapter, verse: h.verse, score: 1 })
+        lastPick.current = { key: screenKey(), strength: 2, at: Date.now() }
         return true
       }
     }
@@ -579,7 +597,11 @@ export function App() {
           const key = JSON.stringify(r)
           const repeated = key === lastInterimRef.current
           lastInterimRef.current = key
-          if (!r) { trackerRef.current?.hear(t); return } // reading: follow along mid-sentence
+          if (!r) {
+            // A quote can go up while the sentence is still being spoken; otherwise follow the reading mid-sentence.
+            if (!followQuote(t, true)) trackerRef.current?.hear(t)
+            return
+          }
           if (key !== JSON.stringify(shorter) && !repeated) return
           const p = trackerRef.current?.passage
           if (r && (!p || p.book !== r.book || p.chapter !== r.chapter || (r.start !== undefined && p.current !== r.start && p.first !== r.start))) { namedAt.current = Date.now(); resumeAutopilot(); pendingHistory.current = true; trackerRef.current?.open(r.book, r.chapter, r.start, r.end); setLive(true) }

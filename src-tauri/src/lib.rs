@@ -100,7 +100,13 @@ pub fn run() {
         .setup(|app| {
             displays::watch(app.handle());
             let handle = app.handle().clone();
-            if let Some(dir) = resource(&handle, "llm", "llama-server.exe") {
+            // On a computer with less than 8 GB the AI (about 1.5 GB) would starve speech recognition; leave it off.
+            // References, reading along and quotes still work without it.
+            let roomy = llm::total_memory_gb().map_or(true, |gb| gb >= 7.5);
+            if !roomy {
+                log_line("ai: off (less than 8 GB of memory)".into());
+            }
+            if let Some(dir) = resource(&handle, "llm", "llama-server.exe").filter(|_| roomy) {
                 match llm::Llm::start(&dir) {
                     Ok(l) => *handle.state::<Ai>().0.lock().unwrap() = Some(l),
                     Err(e) => eprintln!("{e}"),
