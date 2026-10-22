@@ -77,16 +77,6 @@ async function check() {
   }
 }
 
-/** True while the projector is meant to be up, so the size it reports is the real screen's. */
-export const projecting = () => wanted
-
-/** The extended display's size in CSS pixels (what the projector lays out in once it's full screen there). */
-export async function displaySize(): Promise<{ w: number; h: number } | undefined> {
-  if (!isDesktop) return undefined
-  const mon = await targetMonitor().catch(() => undefined)
-  return mon ? { w: Math.round(mon.size.width / mon.scaleFactor), h: Math.round(mon.size.height / mon.scaleFactor) } : undefined
-}
-
 export async function openProjector() {
   if (!isDesktop) return
   wanted = true

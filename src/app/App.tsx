@@ -12,13 +12,13 @@ import { MARGIN, ROWS, sameLayout, screenLeftover, settle, type Item } from './l
 import { BarkEngine, Listener, isDesktop, trace, type SttEngine } from './stt'
 import { linked, related, xrefsReady } from './xref'
 import { CUE, aiReady, recall, rerank, route, type Action } from './ai'
-import { DEFAULT_STYLE, FULL_HD, ScreenFrame, SlideView, themeScale } from './Output'
+import { DEFAULT_STYLE, ScreenFrame, SlideView, themeScale } from './Output'
 import { Slider, SpringPill, WindowControls, glideIndicators } from './controls'
-import { closeProjector, displaySize, openProjector, projecting } from './projector'
+import { closeProjector, openProjector } from './projector'
 import { importBibleShowFolder, loadThemes, saveThemes } from './themes'
 import type { SlideTheme } from '@shared/bsTheme'
 import type { CatalogEntry } from '@shared/lampBible'
-import { ACTIONS, DEFAULT_BINDINGS, actionFor, comboOf, pretty, type ActionId, type Bindings } from './shortcuts'
+import { ACTIONS, DEFAULT_BINDINGS, actionFor, comboOf, hintFor, pretty, withAdded, type ActionId, type Bindings } from './shortcuts'
 import { bus, type BusMessage, type OutputStyle, type Slide } from './bus'
 import { SITE, useUpdates } from './update'
 
@@ -119,6 +119,14 @@ export function App() {
   /** Picking an animation style flips the preview to the next verse so the transition is actually shown. */
   const [previewStep, setPreviewStep] = useState(0)
   const [bindings, setBindings] = useSaved<Bindings>('sf-keys-single', DEFAULT_BINDINGS)
+  // Once per setup: give it the keys added since (/ and . for the searches). Removed later, they stay removed.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('sf-keys-added') === '1') return
+      localStorage.setItem('sf-keys-added', '1')
+    } catch { return }
+    setBindings(withAdded(bindings))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const bindingsRef = useRef(bindings)
   bindingsRef.current = { ...DEFAULT_BINDINGS, ...bindings }
   /** The shortcut slot being recorded ([action, index]); index === length means "add a new one". */
@@ -133,20 +141,6 @@ export function App() {
   const [searchStatus, setSearchStatus] = useState('')
   const [listening, setListening] = useState(false)
   const { update, updating, install, models, getModels } = useUpdates()
-  // The projector's size: previews lay the slide out at exactly this size, then shrink it (see ScreenFrame).
-  const [screen, setScreen] = useState<{ w: number; h: number }>(() => {
-    try { const s = JSON.parse(localStorage.getItem('lampstand-screen') ?? ''); if (s.w > 0 && s.h > 0) return s } catch { /* first run */ }
-    return FULL_HD
-  })
-  useEffect(() => { try { localStorage.setItem('lampstand-screen', JSON.stringify(screen)) } catch { /* private mode */ } }, [screen])
-  useEffect(() => {
-    const fromDisplay = () => void displaySize().then((s) => { if (s && !projecting()) setScreen((o) => (o.w === s.w && o.h === s.h ? o : s)) })
-    fromDisplay()
-    if (!isDesktop) return
-    let off: (() => void) | undefined
-    void import('@tauri-apps/api/event').then(({ listen }) => listen('displays-changed', () => setTimeout(fromDisplay, 1200))).then((u) => { off = u })
-    return () => off?.()
-  }, [])
   const [level, setLevel] = useState(0)
   const [modelPct, setModelPct] = useState<number | null>(null)
   const [command, setCommand] = useState('')
@@ -287,7 +281,6 @@ export function App() {
   useEffect(() => { bus.postMessage({ type: 'style', style: screenStyle } satisfies BusMessage) }, [style, look])
   useEffect(() => {
     bus.onmessage = (e: MessageEvent<BusMessage>) => {
-      if (e.data.type === 'screen') { if (projecting() && e.data.w > 0 && e.data.h > 0) setScreen({ w: e.data.w, h: e.data.h }); return }
       if (e.data.type !== 'hello') return
       bus.postMessage({ type: 'style', style: screenStyle } satisfies BusMessage)
       bus.postMessage({ type: 'slide', slide: liveRef.current ? slideFor(passageRef.current, versionRef.current) : { reference: '', version: versionRef.current, html: '', blank: true } } satisfies BusMessage)
@@ -978,7 +971,7 @@ export function App() {
         </nav>
         <form className="omni" onSubmit={(e) => { e.preventDefault(); submitCommand(refText); refBox.current?.blur() }}>
           <span className="omni-icon">⌕</span>
-          <input ref={refBox} value={refText} onChange={(e) => setRefText(e.target.value)} placeholder="Go to reference   (/)" spellCheck={false} />
+          <input ref={refBox} value={refText} onChange={(e) => setRefText(e.target.value)} placeholder={`Go to reference   (${hintFor(bindings, 'reference')})`} spellCheck={false} />
         </form>
         <div className="grow" />
         {update && (
@@ -1083,8 +1076,8 @@ export function App() {
               <Widget title={frozen ? 'Screen · Frozen' : 'Screen'} className="fixed screen-body" right={<><span className={'dot' + (live ? ' live' : '')} />
                 <button className={'mini-btn' + (frozen ? ' on' : '')} title="Freeze (F7)" onClick={() => setFrozen(!frozen)}>Freeze</button>
                 <button className="mini-btn" onClick={openOutput}>Open</button><button className="mini-btn" onClick={closeOutput}>Close</button></>}>
-                <div className="mini" style={{ aspectRatio: `${screen.w} / ${screen.h}` }}>
-                  <ScreenFrame w={screen.w} h={screen.h}>
+                <div className="mini">
+                  <ScreenFrame>
                     <SlideView slide={frozenSlide ?? (live && passage ? slide : { ...slide, blank: true })} style={{ ...screenStyle, theme: outTheme }} unit="cqmin" />
                   </ScreenFrame>
                 </div>
@@ -1093,7 +1086,7 @@ export function App() {
 
             <div key="find" style={pullStyle('find')}>
               <Widget title="Find" className="fixed">
-                <input ref={findBox} className="field" value={findText} onChange={(e) => setFindText(e.target.value)} placeholder="Words or meaning" spellCheck={false} />
+                <input ref={findBox} className="field" value={findText} onChange={(e) => setFindText(e.target.value)} placeholder={`Words or meaning   (${hintFor(bindings, 'find')})`} spellCheck={false} />
                 <div className="list">
                   {found.map((h, i) => <button key={i} className="hit" onClick={() => openHit(h)}><b>{refLabel(h)}</b><span>{verseOf(h)}</span></button>)}
                 </div>
@@ -1262,8 +1255,8 @@ export function App() {
           <div className="settings-body">
             {settingsTab === 'projector' && (
               <div className="settings-split">
-                <div className="mini big" style={{ aspectRatio: `${screen.w} / ${screen.h}` }}>
-                  <ScreenFrame w={screen.w} h={screen.h}>
+                <div className="mini big">
+                  <ScreenFrame>
                     <SlideView slide={slideFor({ ...(passage ?? { book: 0, chapter: 1, first: 1, last: 1, current: 1, wholeChapter: false }), current: (passage?.current ?? 1) + previewStep }, version)} style={{ ...screenStyle, theme: outTheme }} unit="cqmin" />
                   </ScreenFrame>
                 </div>
@@ -1300,6 +1293,8 @@ export function App() {
                   <div className="group-label">Layout</div>
                   <div className={'setrow' + (look ? ' disabled' : '')}><span>Position<small>{look ? 'Set by the theme' : 'Lower third leaves the picture clear, for livestreams and stage screens'}</small></span>
                     <div className="seg"><button className={style.layout !== 'lower' ? 'on' : ''} onClick={() => setStyle({ ...style, layout: 'full' })}>Full screen</button><button className={style.layout === 'lower' ? 'on' : ''} onClick={() => setStyle({ ...style, layout: 'lower' })}>Lower third</button></div></div>
+                  <div className="setrow"><span>Projector shape<small>Slides are made 16:9 (1920 × 1080). On a projector of another shape, Fill covers the whole screen and Fit keeps the shape, with bars</small></span>
+                    <div className="seg"><button className={style.fit !== 'fit' ? 'on' : ''} onClick={() => setStyle({ ...style, fit: 'fill' })}>Fill</button><button className={style.fit === 'fit' ? 'on' : ''} onClick={() => setStyle({ ...style, fit: 'fit' })}>Fit</button></div></div>
                   <div className="group-label">Background</div>
                   <div className={'setrow' + (look ? ' disabled' : '')}><span>Colour<small>{look ? 'Set by the theme' : 'Green screen keys out cleanly for livestreams'}</small></span>
                     <div className="seg"><button className={style.theme === 'night' ? 'on' : ''} onClick={() => setStyle({ ...style, theme: 'night' })}>Black</button><button className={style.theme === 'light' ? 'on' : ''} onClick={() => setStyle({ ...style, theme: 'light' })}>Cream</button><button className={style.theme === 'green' ? 'on' : ''} onClick={() => setStyle({ ...style, theme: 'green' })}>Green</button></div></div>

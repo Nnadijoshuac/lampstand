@@ -19,6 +19,8 @@ export interface OutputStyle {
   transition: 'none' | 'fade' | 'rise' | 'dissolve' | 'zoom'
   /** Transition length in milliseconds. */
   duration: number
+  /** How the 16:9 program meets a projector of another shape: stretched to cover it, or whole with bars. */
+  fit?: 'fill' | 'fit'
   /** Full screen, or a band across the bottom for livestreams and stage screens. */
   layout?: 'full' | 'lower'
   /** An imported theme (Bible Show) that replaces the built-in look. Saved by id; the theme itself travels with each message. */
@@ -32,7 +34,5 @@ export type BusMessage =
   | { type: 'slide'; slide: Slide }
   | { type: 'style'; style: OutputStyle }
   | { type: 'hello' }
-  /** The projector's size in CSS pixels, so the operator's preview lays out at exactly that size. */
-  | { type: 'screen'; w: number; h: number }
 
 export const bus = new BroadcastChannel('lampstand')

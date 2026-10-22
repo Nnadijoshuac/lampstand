@@ -8,7 +8,8 @@ Lampstand uses [semantic versioning](https://semver.org): 1.0.x releases fix and
 - A small download. `Lampstand.exe` on its own (about 60 MB) fetches the speech and AI models on first start, and the download resumes if the connection drops. The full zip is still there for churches that prefer one download.
 - Every translation Bible Show offers, 401 in 161 languages, is listed under Bibles, Add translation, Get online. 39 public-domain ones are added in one click.
 - The AI server closes with Lampstand even if Lampstand crashes, so it never lingers in memory.
-- The preview is the projector, pixel for pixel. It lays the slide out at the projector's own size and shape (16:9, 16:10, 4:3) and shrinks it, so lines break in the same places. If HDMI drops, it keeps the last projector's layout.
+- The preview is the projector, pixel for pixel. Slides are made once at 1920 × 1080 and scaled, down for the preview and up for the projector, so lines break in the same places and no display can upset the layout. On a 16:10 or 4:3 projector, Fill covers the screen and Fit keeps the shape (Settings, Projector).
+- `/` jumps to Go to reference and `.` (full stop) to Find. F5 and F6 still work, and the search boxes show their keys.
 
 ## 1.0.2 (2026-10-22)
 

@@ -21,10 +21,10 @@ export const ACTIONS: { id: ActionId; label: string; global?: boolean }[] = [
 
 export type Bindings = Record<ActionId, string[]>
 
-/** One key per action. */
+/** Bible Show's key first. The two searches also get one key each by the right hand, / and . (full stop). */
 export const DEFAULT_BINDINGS: Bindings = {
-  reference: ['F5'],
-  find: ['F6'],
+  reference: ['F5', '/'],
+  find: ['F6', '.'],
   next: ['ArrowDown'],
   previous: ['ArrowUp'],
   nextChapter: ['ArrowRight'],
@@ -48,6 +48,20 @@ export function comboOf(e: KeyboardEvent): string | undefined {
   const printable = e.key.length === 1
   const mods = [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && !printable && 'Shift'].filter(Boolean)
   return [...mods, key === '+' && mods.length ? 'Plus' : key].join('+')
+}
+
+/** Keys added to the defaults after release: given to existing setups too, unless the key already does something. */
+const ADDED: [ActionId, string][] = [['reference', '/'], ['find', '.']]
+export function withAdded(b: Bindings): Bindings {
+  const next = { ...b }
+  for (const [a, key] of ADDED) if (!actionFor(next, key)) next[a] = [...(next[a] ?? []), key]
+  return next
+}
+
+/** The key to show beside a search box: its one-key shortcut if it has one, else its first. */
+export const hintFor = (b: Bindings, a: ActionId) => {
+  const k = b[a]?.find((c) => c.length === 1) ?? b[a]?.[0]
+  return k ? pretty(k) : ''
 }
 
 /** Which action (if any) a combo triggers. */

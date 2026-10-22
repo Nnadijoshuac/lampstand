@@ -199,33 +199,36 @@ export function SlideView({ slide, style, unit }: { slide: Slide; style: OutputS
   )
 }
 
-/** The projector's size when it hasn't reported one: a 1080p screen. */
-export const FULL_HD = { w: 1920, h: 1080 }
+/** The program's resolution. Every slide is laid out once on this canvas, whatever display shows it. */
+export const PROGRAM = { w: 1920, h: 1080 }
 
 /**
- * The program, as the operator sees it. The slide is laid out at the projector's own size (w × h CSS pixels, the
- * same box the projector lays out in) and then shrunk as a picture to fit. Line breaks, text sizes and positions
- * are worked out at full size, so the preview is the projector, pixel for pixel, only smaller.
+ * The program canvas, scaled to its box: down for the operator's previews, up for the projector. Line breaks, text
+ * sizes and positions are worked out on the 1920 × 1080 canvas, so every view is the same picture, pixel for pixel,
+ * and no display can change the layout. "fill" stretches the picture over a box of another shape (a 16:10 or 4:3
+ * projector). "fit" keeps its shape, with bars.
  */
-export function ScreenFrame({ w, h, children }: { w: number; h: number; children: ReactNode }) {
+export function ScreenFrame({ children, fit = 'fit' }: { children: ReactNode; fit?: 'fill' | 'fit' }) {
+  const { w, h } = PROGRAM
   const outer = useRef<HTMLDivElement>(null)
-  const [fit, setFit] = useState({ s: 0, x: 0, y: 0 })
+  const [box, setBox] = useState({ sx: 0, sy: 0, x: 0, y: 0 })
   useLayoutEffect(() => {
     const el = outer.current
     if (!el) return
     const measure = () => {
       const cw = el.clientWidth, ch = el.clientHeight
+      if (fit === 'fill') return setBox({ sx: cw / w, sy: ch / h, x: 0, y: 0 })
       const s = Math.min(cw / w, ch / h)
-      setFit({ s, x: (cw - w * s) / 2, y: (ch - h * s) / 2 })
+      setBox({ sx: s, sy: s, x: (cw - w * s) / 2, y: (ch - h * s) / 2 })
     }
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [w, h])
+  }, [w, h, fit])
   return (
     <div ref={outer} className="screen-frame">
-      <div className="screen-canvas" style={{ width: w, height: h, transform: `translate(${fit.x}px, ${fit.y}px) scale(${fit.s})`, visibility: fit.s ? 'visible' : 'hidden' }}>
+      <div className="screen-canvas" style={{ width: w, height: h, transform: `translate(${box.x}px, ${box.y}px) scale(${box.sx}, ${box.sy})`, visibility: box.sx ? 'inherit' : 'hidden' }}>
         {children}
       </div>
     </div>
@@ -243,16 +246,7 @@ export function Output() {
       if (e.data.type === 'style') setStyle(e.data.style)
     }
     bus.postMessage({ type: 'hello' } satisfies BusMessage)
-    // Only a full-screen projector speaks for the screen. When HDMI drops, the window leaves full screen and hides,
-    // and the preview keeps the last real size instead of taking the leftover window's.
-    const size = () => {
-      const w = window.innerWidth, h = window.innerHeight
-      if (Math.abs(w - window.screen.width) <= 1 && Math.abs(h - window.screen.height) <= 1) bus.postMessage({ type: 'screen', w, h } satisfies BusMessage)
-    }
-    size()
-    window.addEventListener('resize', size)
-    return () => window.removeEventListener('resize', size)
   }, [])
 
-  return <div className="output"><SlideView slide={slide} style={style} unit="vmin" /></div>
+  return <div className="output"><ScreenFrame fit={style.fit ?? 'fill'}><SlideView slide={slide} style={style} unit="cqmin" /></ScreenFrame></div>
 }
