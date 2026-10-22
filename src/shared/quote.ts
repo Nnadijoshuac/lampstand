@@ -36,6 +36,8 @@ export interface QuoteHit {
   runs: number
   /** Share of the verse's distinct words that were said. */
   coverage: number
+  /** Matched words that are not names (Abraham, Isaac): names are rare, but saying them is not quoting. */
+  plain: number
   /** Rarity of the matched words (sum of IDF), and of those inside runs. */
   weight: number
   runWeight: number
@@ -45,6 +47,8 @@ export interface QuoteHit {
 
 export class QuoteIndex {
   private stems: string[][] = []
+  /** Words the KJV nearly always capitalises mid-sentence: names of people and places. */
+  private names = new Set<string>()
   private postings = new Map<string, number[]>()
   private idf = new Map<string, number>()
   private chapters = new Map<string, number[]>()
@@ -65,6 +69,22 @@ export class QuoteIndex {
     })
     const n = verses.length
     for (const [w, list] of this.postings) this.idf.set(w, Math.log(1 + n / list.length))
+    // Names: count how often each word is capitalised when it does not start a sentence.
+    const seen = new Map<string, [number, number]>()
+    for (const v of verses) {
+      const words = v.text.replace(/[^A-Za-z\s.;:?!]/g, ' ').split(/\s+/).filter(Boolean)
+      words.forEach((raw, i) => {
+        if (i === 0 || /[.;:?!]$/.test(words[i - 1])) return
+        const w = raw.replace(/[.;:?!]$/, '')
+        if (w.length < 3) return
+        const key = stem(w.toLowerCase())
+        const c = seen.get(key) ?? [0, 0]
+        c[0]++
+        if (/^[A-Z]/.test(w)) c[1]++
+        seen.set(key, c)
+      })
+    }
+    for (const [w, [total, caps]] of seen) if (total >= 3 && caps / total >= 0.9) this.names.add(w)
   }
 
   private measure(i: number, where: Map<string, number[]>): QuoteHit | undefined {
@@ -81,8 +101,9 @@ export class QuoteIndex {
     }
     const coverage = matched.length / distinct.size
     const runWeight = [...inRuns].reduce((s, w) => s + (this.idf.get(w) ?? 0), 0)
+    const plain = matched.filter((w) => !this.names.has(w)).length
     const v = this.verses[i]
-    return { book: v.book, chapter: v.chapter, verse: v.verse, matched: matched.length, runs, coverage, weight, runWeight, index: i, score: weight * (0.4 + coverage) + runs * 4 }
+    return { book: v.book, chapter: v.chapter, verse: v.verse, matched: matched.length, plain, runs, coverage, weight, runWeight, index: i, score: weight * (0.4 + coverage) + runs * 4 }
   }
 
   private positions(sentence: string): Map<string, number[]> {
@@ -116,13 +137,15 @@ export class QuoteIndex {
   find(sentence: string): QuoteHit | undefined {
     const [best, next] = this.rank(sentence, 2)
     if (!best) return
-    const strong =
+    // Names alone ("Isaac was not merely Abraham's son") match genealogies; at least two other words must agree.
+    const strong = best.plain >= 2 && (
       // a phrase or two of the verse, in order, made of words that mean something
-      (best.runs >= 2 && (best.coverage >= 0.4 || best.matched >= 5 || best.runs >= 3 || (best.runWeight >= 12 && best.coverage >= 0.25))) ||
+      (best.runs >= 2 && (best.coverage >= 0.4 || best.matched >= 5 || best.runs >= 3 || (best.runWeight >= 12 && best.coverage >= 0.25)) &&
+        (best.coverage >= 0.4 || best.plain >= 3)) ||
       // nearly the whole verse, even reworded, in words that are not everyday ("the temptation ended, Satan departed for a season")
-      (best.coverage >= 0.75 && best.matched >= 4 && best.weight >= 18)
+      (best.coverage >= 0.75 && best.matched >= 4 && best.weight >= 18))
     // The best must stand out, unless the runner-up says the same thing (parallel passages in the Gospels).
-    const clear = !next || best.score >= next.score * 1.15 || this.alike(best.index, next.index)
+    const clear = !next || best.score >= next.score * 1.15 || this.similar(best.index, next.index)
     return strong && clear ? best : undefined
   }
 
@@ -136,14 +159,20 @@ export class QuoteIndex {
     if (where.size < 2) return
     const hits = (this.chapters.get(`${book}:${chapter}`) ?? [])
       .map((i) => this.measure(i, where))
-      .filter((h): h is QuoteHit => !!h && h.matched >= (strict ? 3 : 2) && h.runs >= 1 && (h.coverage >= 0.3 || h.matched >= 4))
+      .filter((h): h is QuoteHit => !!h && h.matched >= (strict ? 3 : 2) && h.plain >= (strict ? 2 : 1) && h.runs >= 1 && (h.coverage >= 0.3 || h.matched >= 4))
       .sort((a, b) => b.score - a.score)
     const [best, next] = hits
     return best && (!next || best.score >= next.score * 1.2) ? best : undefined
   }
 
+  /** Whether a hit says the same thing as the given verse (parallel passages, or the very same verse). */
+  alike(h: QuoteHit, book: number, chapter: number, verse: number): boolean {
+    const j = (this.chapters.get(`${book}:${chapter}`) ?? []).find((i) => this.verses[i].verse === verse)
+    return j !== undefined && (j === h.index || this.similar(h.index, j))
+  }
+
   /** Two verses with mostly the same words ("This is my beloved Son, in whom I am well pleased"). */
-  private alike(a: number, b: number): boolean {
+  private similar(a: number, b: number): boolean {
     const x = new Set(this.stems[a]), y = new Set(this.stems[b])
     const both = [...x].filter((w) => y.has(w)).length
     return both / Math.min(x.size, y.size) >= 0.6

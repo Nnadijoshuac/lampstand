@@ -70,7 +70,13 @@ type Line = { text: string; at: number }
 
 const STOPWORDS = new Set('the a an and of to in is it that for was he his him with as on be by at this but not are from you we they who which will shall unto thou thee thy ye i my me our us so if or there where said say says remember when what how then than into upon them their all have hath had do did done like just one also about'.split(' '))
 const stemOf = (w: string) => w.replace(/(eth|est|ing|ed|es|s)$/, '')
-const contentWords = (s: string) => new Set(normalize(s).split(' ').filter((w) => w.length > 2 && !STOPWORDS.has(w) && !/^\d+$/.test(w)).map(stemOf))
+const contentList = (s: string) => normalize(s).split(' ').filter((w) => w.length > 2 && !STOPWORDS.has(w) && !/^\d+$/.test(w)).map(stemOf)
+const contentWords = (s: string) => new Set(contentList(s))
+/** True when the verse's words appear one after another in what was said ("the Bible tells us, Jesus wept"). */
+const saidAsPhrase = (verse: string, said: string) => {
+  const v = contentList(verse), s = contentList(said)
+  return v.length > 0 && s.some((_, i) => v.every((w, k) => s[i + k] === w))
+}
 /** Share of the spoken content words that also appear in the verse (0..1). */
 function wordOverlap(said: string, verse: string): number {
   const a = contentWords(said), b = contentWords(verse)
@@ -383,7 +389,7 @@ export function App() {
     const verbatim = (h: Hit) => {
       const t = verseText(h) ?? ''
       const n = contentWords(t).size
-      if (n >= 2 && n <= 6 && wordOverlap(t, latest) === 1) return true
+      if (n >= 2 && n <= 6 && saidAsPhrase(t, latest)) return true
       return contentWords(latest).size >= 6 && wordOverlap(latest, t) >= 0.75
     }
     const quoted = [...fromAi, ...searchHits].find(verbatim)
@@ -546,7 +552,10 @@ export function App() {
       const h = q.find(said)
       if (!h) continue
       if (p && h.book === p.book && h.chapter === p.chapter && Math.abs(h.verse - p.current) <= 1) return false // the reading follower has it
+      // A parallel of the verse already up ("a man shall leave his father" is in Genesis, Mark and Ephesians) stays put.
+      if (p && q.alike(h, p.book, p.chapter, p.current)) return true
       trace(`quoted ${refLabel(h)} (${h.matched} words, ${h.runs} in order)`)
+      namedChapters.current = [{ book: h.book, chapter: h.chapter }, ...namedChapters.current.filter((c) => c.book !== h.book || c.chapter !== h.chapter)].slice(0, 6)
       openHit({ book: h.book, chapter: h.chapter, verse: h.verse, score: 1 })
       lastPick.current = { key: screenKey(), strength: 2, at: Date.now() }
       return true
