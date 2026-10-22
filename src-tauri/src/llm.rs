@@ -34,7 +34,33 @@ impl Llm {
             cmd.creation_flags(0x0800_0000 | 0x0000_4000);
         }
         let child = cmd.spawn().map_err(|e| format!("Could not start the AI: {e}"))?;
+        #[cfg(windows)]
+        close_with_app(&child);
         Ok(Self { port, child })
+    }
+}
+
+/// Puts the AI server in a job that Windows closes when Lampstand exits, even if Lampstand crashes or is ended from
+/// Task Manager, so it never lingers holding 1.5 GB of memory.
+#[cfg(windows)]
+fn close_with_app(child: &Child) {
+    use std::os::windows::io::AsRawHandle;
+    use windows::Win32::Foundation::HANDLE;
+    use windows::Win32::System::JobObjects::*;
+    unsafe {
+        let Ok(job) = CreateJobObjectW(None, windows::core::PCWSTR::null()) else { return };
+        let mut info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        let set = SetInformationJobObject(
+            job,
+            JobObjectExtendedLimitInformation,
+            &info as *const _ as *const std::ffi::c_void,
+            std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+        );
+        // The job handle stays open for Lampstand's lifetime; Windows closes it, and the server, on exit.
+        if set.is_ok() {
+            let _ = AssignProcessToJobObject(job, HANDLE(child.as_raw_handle()));
+        }
     }
 }
 

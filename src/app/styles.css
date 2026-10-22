@@ -584,3 +584,12 @@ input:focus, select:focus, button:focus { outline: none; }
 .catalog-filter { display: flex; gap: 8px; margin-bottom: 6px; }
 .catalog-filter input { flex: 1; min-width: 0; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 11px; color: var(--fg); }
 .catalog-list { max-height: 46vh; overflow-y: auto; padding-right: 6px; }
+
+/* Updates and the small download's models */
+.update-pill { font-size: 12px; font-weight: 600; color: var(--bg); background: var(--gold); border: 0; border-radius: 999px; padding: 4px 12px; white-space: nowrap; }
+.update-pill:disabled { opacity: .55; }
+.models-bar { flex: none; display: flex; align-items: center; gap: 12px; padding: 8px 14px; font-size: 13px; border-bottom: 1px solid var(--line); background: var(--panel2); }
+.models-bar .muted { color: var(--muted); }
+.models-bar .err { color: #e08a7a; }
+.models-progress { width: 180px; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.models-progress i { display: block; height: 100%; background: var(--gold); transition: width .6s; }

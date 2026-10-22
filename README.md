@@ -23,14 +23,23 @@ It runs on the church computer. Nothing is sent anywhere and there is nothing to
 - **Moving from Bible Show?** Import your Bible Show Bibles (`.bib` files, or the downloadable installers directly) and your projector themes (Settings, Projector, *Import from Bible Show*).
 - **A proper projector.** Full screen or lower third, black / cream / green-screen, transitions, words of Jesus in red, and it finds the second display by itself and comes back when HDMI is reconnected.
 
+## Download
+
+Two ways, from the [website](https://nnadijoshuac.github.io/lampstand/#/download) or the [releases](../../releases/latest):
+
+- **Everything** (`Lampstand-x.y.z-windows.zip`, 1.6 GB). Unzip and run `Lampstand.exe`. Best for a church with slow or costly internet on the day.
+- **Just the app** (`Lampstand.exe`, about 60 MB). On first start it downloads the speech and AI models (1.5 GB) into `%LOCALAPPDATA%\Lampstand`. The download resumes if the connection drops.
+
+Lampstand checks for updates when it starts. A new version is one click ("Update to x.y.z"), never offered mid-sermon, and only installed if it carries the project's signature. See [docs/RELEASING.md](docs/RELEASING.md).
+
 ## Translations
 
-The King James Version comes with Lampstand. In the app, open Bibles and choose **Add translation**:
+The King James Version comes with Lampstand. The [Translations page](https://nnadijoshuac.github.io/lampstand/#/translations) lists all 401 translations Bible Show offers, in 161 languages. In the app, open Bibles and choose **Add translation**:
 
-- **Get online** lists the free translations on the website (ASV, Berean Standard, BBE, Darby, Geneva, NHEB, Webster, Young's Literal) and adds one in a click.
-- **Upload a file** takes a Lampstand Bible file (`.lamp.json`) or a Bible Show version (the `.exe` installer or the `.bib` inside it). Translations that belong to publishers (NIV, NKJV, Amplified and others) can be downloaded free from Bible Show and added this way.
+- **Get online** lists them all. The 39 public-domain ones are hosted by Lampstand and added in one click.
+- **Upload a file** takes a Lampstand Bible file (`.lamp.json`) or a Bible Show version (the `.exe` installer or the `.bib` inside it). Translations that belong to publishers (NIV, NKJV, Amplified and others) are downloaded free from Bible Show and added this way.
 
-A Lampstand Bible is plain JSON, described in `src/shared/lampBible.ts`. `scripts/build-bibles.py` builds the website's files from public-domain sources.
+A Lampstand Bible is plain JSON, described in `src/shared/lampBible.ts`. `scripts/convert-bibleshow.ts` and `scripts/build-bibles.py` build the hosted files, and `scripts/build-catalog.py` builds the catalogue.
 
 ## How it works
 
@@ -43,6 +52,8 @@ A Lampstand Bible is plain JSON, described in `src/shared/lampBible.ts`. `script
 | Search by meaning (MiniLM sentence embeddings, precomputed) plus keyword search | `src/app/search.ts` |
 | Bible Show `.bib` (Jet 4 database) and installer import, themes | `src/shared/bib.ts`, `src/shared/nsis.ts`, `src/shared/bsTheme.ts` |
 | Projector window and themes | `src/app/Output.tsx`, `src/app/projector.ts` |
+| Updates and the models download, signed with ed25519 | `src-tauri/src/update.rs`, `src/app/update.ts` |
+| Website (React, deployed to GitHub Pages) | `website/` |
 
 Everything runs locally. The app ships with the King James Version; other translations are imported by the church.
 
@@ -52,7 +63,7 @@ Requirements: Node 20+, Rust (stable), and on Windows the WebView2 runtime (buil
 
 ```
 npm install
-npm test               # reference parser, tracker and theme tests
+npm test               # reference parser, tracker, quotes, Bible formats and themes
 npm run tauri dev      # run the app
 npx tauri build --no-bundle
 ```

@@ -33,4 +33,4 @@ export type BusMessage =
   | { type: 'style'; style: OutputStyle }
   | { type: 'hello' }
 
-export const bus = new BroadcastChannel('scriptureflow')
+export const bus = new BroadcastChannel('lampstand')

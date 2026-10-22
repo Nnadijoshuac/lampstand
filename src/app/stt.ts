@@ -199,7 +199,7 @@ export class BarkEngine implements SttEngine {
     for (let i = 0; ; i++) {
       const s = await invoke<string>('stt_status')
       if (s === 'ready') return 'bark'
-      if (s !== 'loading') throw new Error(s)
+      if (s !== 'loading' && s !== 'missing') throw new Error(s) // missing: waits for the models download
       onProgress(Math.min(95, i * 5))
       await new Promise((r) => setTimeout(r, 200))
     }
@@ -214,7 +214,7 @@ export class BarkEngine implements SttEngine {
 export const isDesktop = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 
 const t0 = performance.now()
-/** Timing diagnostics, written to %TEMP%/scriptureflow.log in the desktop app. */
+/** Timing diagnostics, written to %TEMP%/lampstand.log in the desktop app. */
 export function trace(what: string): void {
   if (!isDesktop) return
   const line = `${((performance.now() - t0) / 1000).toFixed(2)}s ${what}`

@@ -1,6 +1,7 @@
 mod bark;
 mod displays;
 mod llm;
+mod update;
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -9,6 +10,8 @@ use tauri::Manager;
 
 enum Engine {
     Loading,
+    /// The small download: the models haven't been fetched yet.
+    Missing,
     Ready(bark::Bark),
     Failed(String),
 }
@@ -16,11 +19,12 @@ enum Engine {
 struct Stt(Mutex<Engine>);
 struct Ai(Mutex<Option<llm::Llm>>);
 
-/// "ready", "loading", or the load error.
+/// "ready", "loading", "missing", or the load error.
 #[tauri::command]
 fn stt_status(state: tauri::State<Stt>) -> String {
     match &*state.0.lock().unwrap() {
         Engine::Loading => "loading".into(),
+        Engine::Missing => "missing".into(),
         Engine::Ready(_) => "ready".into(),
         Engine::Failed(e) => e.clone(),
     }
@@ -34,10 +38,11 @@ async fn stt_transcribe(state: tauri::State<'_, Stt>, request: Request<'_>) -> R
     };
     let samples: Vec<f32> = bytes.chunks_exact(4).map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect();
     #[cfg(debug_assertions)]
-    if samples.len() > 16000 * 6 { save_wav(&std::env::temp_dir().join("scriptureflow-last.wav"), &samples) }
+    if samples.len() > 16000 * 6 { save_wav(&std::env::temp_dir().join("lampstand-last.wav"), &samples) }
     match &mut *state.0.lock().unwrap() {
         Engine::Ready(b) => b.transcribe(&samples),
         Engine::Loading => Err("Speech model is still loading".into()),
+        Engine::Missing => Err("The speech model hasn't been downloaded yet".into()),
         Engine::Failed(e) => Err(e.clone()),
     }
 }
@@ -55,15 +60,15 @@ fn save_wav(path: &std::path::Path, samples: &[f32]) {
     let _ = std::fs::write(path, b);
 }
 
-/// Appends a timing line to %TEMP%/scriptureflow.log (diagnostics for response speed).
+/// Appends a timing line to %TEMP%/lampstand.log (diagnostics for response speed).
 #[tauri::command]
 fn log_line(line: String) {
     use std::io::Write;
-    // Never grows without end: past 5 MB the log becomes scriptureflow.old.log (replacing the older one) and a
+    // Never grows without end: past 5 MB the log becomes lampstand.old.log (replacing the older one) and a
     // fresh one starts, so at most about 10 MB of history is ever kept.
-    let path = std::env::temp_dir().join("scriptureflow.log");
+    let path = std::env::temp_dir().join("lampstand.log");
     if std::fs::metadata(&path).map(|m| m.len() > 5_000_000).unwrap_or(false) {
-        let _ = std::fs::rename(&path, std::env::temp_dir().join("scriptureflow.old.log"));
+        let _ = std::fs::rename(&path, std::env::temp_dir().join("lampstand.old.log"));
     }
     if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
         let _ = writeln!(f, "{line}");
@@ -86,6 +91,30 @@ fn open_site(url: String) -> Result<(), String> {
 }
 
 /// Testing aid: SF_FEED=<audio url> makes the app listen to that recording instead of the microphone.
+/// Installs a signed update from the GitHub release and restarts into it.
+#[tauri::command]
+async fn install_update(app: tauri::AppHandle, url: String, signature: String) -> Result<(), String> {
+    let exe = tauri::async_runtime::spawn_blocking(move || update::install(&url, &signature)).await.map_err(|e| e.to_string())??;
+    log_line("update: installed, restarting".into());
+    update::relaunch(&exe)?;
+    app.exit(0);
+    Ok(())
+}
+
+/// The small download: fetches the speech and AI models from the release zip, then starts them.
+#[tauri::command]
+async fn download_models(app: tauri::AppHandle, url: String, signature: String, size: u64) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || update::fetch_models(&url, &signature, size)).await.map_err(|e| e.to_string())??;
+    log_line("models: downloaded".into());
+    start_engines(&app);
+    Ok(())
+}
+
+#[tauri::command]
+fn models_progress() -> u64 {
+    update::progress()
+}
+
 #[tauri::command]
 fn debug_feed() -> Option<String> {
     std::env::var("SF_FEED").ok().filter(|s| !s.is_empty())
@@ -103,43 +132,55 @@ fn resource(app: &tauri::AppHandle, rel: &str, probe: &str) -> Option<PathBuf> {
     if let Ok(r) = app.path().resource_dir() {
         dirs.push(r.join(rel));
     }
+    if let Some(d) = update::data_dir() {
+        dirs.push(d.join(rel));
+    }
     dirs.push(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(rel));
     dirs.into_iter().find(|d| d.join(probe).exists())
 }
 
+/// Starts the AI server and loads the speech model, from next to the exe or from what the small download fetched.
+fn start_engines(app: &tauri::AppHandle) {
+    let handle = app.clone();
+    // On a computer with less than 8 GB the AI (about 1.5 GB) would starve speech recognition; leave it off.
+    // References, reading along and quotes still work without it.
+    let roomy = llm::total_memory_gb().map_or(true, |gb| gb >= 7.5);
+    if !roomy {
+        log_line("ai: off (less than 8 GB of memory)".into());
+    }
+    let running = handle.state::<Ai>().0.lock().unwrap().is_some();
+    if let Some(dir) = resource(&handle, "llm", "llama-server.exe").filter(|_| roomy && !running) {
+        match llm::Llm::start(&dir) {
+            Ok(l) => *handle.state::<Ai>().0.lock().unwrap() = Some(l),
+            Err(e) => eprintln!("{e}"),
+        }
+    }
+    let Some(models) = resource(&handle, "models/bark", "encoder.onnx") else {
+        *handle.state::<Stt>().0.lock().unwrap() = Engine::Missing;
+        return;
+    };
+    *handle.state::<Stt>().0.lock().unwrap() = Engine::Loading;
+    std::thread::spawn(move || {
+        let result = bark::Bark::load(&models);
+        *handle.state::<Stt>().0.lock().unwrap() = match result {
+            Ok(b) => Engine::Ready(b),
+            Err(e) => Engine::Failed(e),
+        };
+    });
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    update::tidy();
     tauri::Builder::default()
         .manage(Stt(Mutex::new(Engine::Loading)))
         .manage(Ai(Mutex::new(None)))
         .setup(|app| {
             displays::watch(app.handle());
-            let handle = app.handle().clone();
-            // On a computer with less than 8 GB the AI (about 1.5 GB) would starve speech recognition; leave it off.
-            // References, reading along and quotes still work without it.
-            let roomy = llm::total_memory_gb().map_or(true, |gb| gb >= 7.5);
-            if !roomy {
-                log_line("ai: off (less than 8 GB of memory)".into());
-            }
-            if let Some(dir) = resource(&handle, "llm", "llama-server.exe").filter(|_| roomy) {
-                match llm::Llm::start(&dir) {
-                    Ok(l) => *handle.state::<Ai>().0.lock().unwrap() = Some(l),
-                    Err(e) => eprintln!("{e}"),
-                }
-            }
-            std::thread::spawn(move || {
-                let result = match resource(&handle, "models/bark", "encoder.onnx") {
-                    Some(dir) => bark::Bark::load(&dir),
-                    None => Err("Speech model files are missing".into()),
-                };
-                *handle.state::<Stt>().0.lock().unwrap() = match result {
-                    Ok(b) => Engine::Ready(b),
-                    Err(e) => Engine::Failed(e),
-                };
-            });
+            start_engines(app.handle());
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![stt_status, stt_transcribe, ai_port, log_line, debug_feed, open_site])
+        .invoke_handler(tauri::generate_handler![stt_status, stt_transcribe, ai_port, log_line, debug_feed, open_site, install_update, download_models, models_progress])
         .build(tauri::generate_context!())
         .expect("error while building Lampstand")
         .run(|app, event| {

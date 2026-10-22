@@ -8,7 +8,7 @@ import Wordmark from './Wordmark'
 import Demo from './Demo'
 import Moment from './Moment'
 import Translations from './Translations'
-import { DOWNLOAD_SIZE, DOWNLOAD_URL, REPO_URL } from './links'
+import { DOWNLOAD_SIZE, EXE_SIZE, EXE_URL, REPO_URL, ZIP_URL } from './links'
 import { useRoute } from './route'
 import { count } from './count'
 
@@ -93,7 +93,7 @@ export default function App() {
                 church computer and it is free.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-5">
-                <StarBorder as="a" href={DOWNLOAD_URL} onClick={() => count('download-windows', true)} theme={light ? 'light' : 'dark'} color={light ? '#b8892e' : '#f3e2b8'} className="text-sm font-semibold">
+                <StarBorder as="a" href="#/download" theme={light ? 'light' : 'dark'} color={light ? '#b8892e' : '#f3e2b8'} className="text-sm font-semibold">
                   Download for Windows
                 </StarBorder>
                 <a href={REPO_URL} className="group text-sm font-medium text-[var(--dim)] hover:text-[var(--fg)]">Read the source <Arrow /></a>
@@ -181,10 +181,10 @@ export default function App() {
           <div className="mx-auto grid max-w-[1400px] gap-12 px-5 py-32 sm:px-10 lg:grid-cols-12 lg:items-end">
             <FadeContent effect="fade" className="lg:col-span-6">
               <h2 className="text-[clamp(2.6rem,5.4vw,5.2rem)] font-semibold leading-[0.98] tracking-[-0.045em]">Free for every church.</h2>
-              <p className="mt-6 max-w-md text-[var(--dim)]">Download it, unzip it and press Listen. There is nothing to sign up for.</p>
+              <p className="mt-6 max-w-md text-[var(--dim)]">Download it, open it and press Listen. There is nothing to sign up for, and it keeps itself up to date.</p>
             </FadeContent>
             <div className="grid gap-4 lg:col-span-6">
-              <a href={DOWNLOAD_URL} onClick={() => count('download-windows', true)} className="group block">
+              <a href={EXE_URL} onClick={() => count('download-exe', true)} className="group block">
                 <SpotlightCard theme={light ? 'light' : 'dark'} spotlightColor={light ? 'rgba(184,137,46,0.2)' : 'rgba(243,226,184,0.16)'} className="rounded-2xl p-7">
                   <div className="flex items-baseline justify-between gap-6">
                     <div>
@@ -193,8 +193,15 @@ export default function App() {
                     </div>
                     <div className="text-2xl"><Arrow /></div>
                   </div>
-                  <div className="mt-6 text-sm text-[var(--muted)]">{DOWNLOAD_SIZE} portable .zip, speech and AI models included</div>
+                  <div className="mt-6 text-sm text-[var(--muted)]">{EXE_SIZE}. On first start it downloads the speech and AI models (1.5 GB), and picks up where it left off if the internet drops.</div>
                 </SpotlightCard>
+              </a>
+              <a href={ZIP_URL} onClick={() => count('download-zip', true)} className="group flex items-baseline justify-between gap-6 rounded-2xl border border-[var(--line)] px-7 py-5 transition hover:border-[var(--dim)]">
+                <span>
+                  <span className="block font-medium">Everything in one zip</span>
+                  <span className="mt-1 block text-sm text-[var(--muted)]">{DOWNLOAD_SIZE} with the models inside. For a church computer with slow internet. Unzip and press Listen.</span>
+                </span>
+                <Arrow />
               </a>
               <a href={REPO_URL + '#build-from-source'} className="group flex items-baseline justify-between rounded-2xl border border-[var(--line)] px-7 py-5 text-[var(--dim)] transition hover:text-[var(--fg)]">
                 <span>On a Mac or Linux? You can build it from the source today.</span><Arrow />

@@ -1,6 +1,7 @@
 // Tiny IndexedDB key-value store. Bibles and embeddings are too big for localStorage.
 const open = (): Promise<IDBDatabase> =>
   new Promise((res, rej) => {
+    // Named before the app was Lampstand. Renaming it would lose every church's saved Bibles.
     const r = indexedDB.open('scriptureflow', 1)
     r.onupgradeneeded = () => r.result.createObjectStore('kv')
     r.onsuccess = () => res(r.result)

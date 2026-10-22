@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    scriptureflow_lib::run()
+    lampstand_lib::run()
 }

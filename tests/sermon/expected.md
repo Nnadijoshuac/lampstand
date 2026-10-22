@@ -1,6 +1,6 @@
 # Test sermon: "Strength for the waiting season" (answer key)
 
-`sermon.txt` is read aloud (or played) while ScriptureFlow listens in Autopilot.
+`sermon.txt` is read aloud (or played) while Lampstand listens in Autopilot.
 Each row is what the screen should show at that moment. Score each row hit or miss, and note the delay.
 
 | # | Moment in the sermon | Kind | Expected on screen |

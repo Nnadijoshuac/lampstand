@@ -20,10 +20,10 @@ import type { SlideTheme } from '@shared/bsTheme'
 import type { CatalogEntry } from '@shared/lampBible'
 import { ACTIONS, DEFAULT_BINDINGS, actionFor, comboOf, pretty, type ActionId, type Bindings } from './shortcuts'
 import { bus, type BusMessage, type OutputStyle, type Slide } from './bus'
+import { SITE, useUpdates } from './update'
 
 const lib = new Library()
 /** Where the free translations live (the Lampstand website). */
-const SITE = 'https://nnadijoshuac.github.io/lampstand/'
 const CATALOG = SITE + 'bibles/'
 const engine: SttEngine = new BarkEngine()
 const Grid = WidthProvider(Responsive)
@@ -132,6 +132,7 @@ export function App() {
   const [status, setStatus] = useState('Loading scripture…')
   const [searchStatus, setSearchStatus] = useState('')
   const [listening, setListening] = useState(false)
+  const { update, updating, install, models, getModels } = useUpdates()
   const [level, setLevel] = useState(0)
   const [modelPct, setModelPct] = useState<number | null>(null)
   const [command, setCommand] = useState('')
@@ -965,6 +966,12 @@ export function App() {
           <input ref={refBox} value={refText} onChange={(e) => setRefText(e.target.value)} placeholder="Go to reference   (/)" spellCheck={false} />
         </form>
         <div className="grow" />
+        {update && (
+          <button className="update-pill" onClick={() => void install()} disabled={listening || updating === '…'}
+            title={updating && updating !== '…' ? updating : listening ? 'Stop listening to update' : update.notes || `Lampstand ${update.version} is ready`}>
+            {updating === '…' ? 'Updating…' : update.full ? `Get ${update.version}` : `Update to ${update.version}`}
+          </button>
+        )}
         {msg && <span key={msg} className={'toast' + (msgLeaving ? ' leaving' : '')}>{msg}</span>}
         <SpringPill className={auto ? (held ? 'held' : listening ? 'active' : 'ready') : 'assist'}
           onClick={() => { if (held) resumeAutopilot(); else setMode(auto ? 'assist' : 'autopilot') }}
@@ -977,6 +984,19 @@ export function App() {
         <button className={'btn live ' + (live ? 'on' : '')} onClick={() => setLive(!live)}>{live ? 'Live' : 'Blank'}</button>
         <WindowControls />
       </header>
+      {models && (
+        <div className="models-bar">
+          <b>One more step</b>
+          <span>Lampstand needs its speech and AI models to listen. About {((models.size || 1.6e9) / 1e9).toFixed(1)} GB, downloaded once.</span>
+          {models.busy || models.got > 0 ? (
+            <span className="models-progress"><i style={{ width: (models.size ? Math.min(100, (models.got / models.size) * 100) : 0) + '%' }} /></span>
+          ) : null}
+          {models.busy
+            ? <span className="muted">{models.size ? Math.floor((models.got / models.size) * 100) : 0}%{models.got >= models.size && models.size ? ', unpacking' : ''}</span>
+            : <button className="mini-btn" onClick={() => void getModels()}>{models.got > 0 ? 'Continue download' : 'Download'}</button>}
+          {models.error && <span className="err">{models.error}</span>}
+        </div>
+      )}
 
       {/* Live stays mounted while other pages are open, so returning to it never re-lays out the widgets. */}
       {(

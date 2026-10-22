@@ -45,7 +45,7 @@ impl Bark {
             .map(|l| l.rsplit_once(' ').map(|(t, _)| t).unwrap_or(l).replace('\u{2581}', " "))
             .collect();
         let blank = vocab.iter().position(|t| t == "<blk>").ok_or("vocab has no <blk>")? as i32;
-        let env = ort::init().with_name("scriptureflow").build().map_err(|e| e.to_string())?;
+        let env = ort::init().with_name("lampstand").build().map_err(|e| e.to_string())?;
         let mut me = Self {
             pre: session(&env, &dir.join("preprocessor.onnx"))?,
             enc: session(&env, &dir.join("encoder.onnx"))?,
