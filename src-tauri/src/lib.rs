@@ -70,6 +70,20 @@ fn log_line(line: String) {
     }
 }
 
+/// Opens a Lampstand web page (the translations catalogue) in the default browser. Only our own site.
+#[tauri::command]
+fn open_site(url: String) -> Result<(), String> {
+    if !url.starts_with("https://nnadijoshuac.github.io/lampstand/") || url.contains('"') {
+        return Err("not a Lampstand page".into());
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        std::process::Command::new("explorer").arg(&url).creation_flags(0x0800_0000).spawn().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 /// Testing aid: SF_FEED=<audio url> makes the app listen to that recording instead of the microphone.
 #[tauri::command]
 fn debug_feed() -> Option<String> {
@@ -124,7 +138,7 @@ pub fn run() {
             });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![stt_status, stt_transcribe, ai_port, log_line, debug_feed])
+        .invoke_handler(tauri::generate_handler![stt_status, stt_transcribe, ai_port, log_line, debug_feed, open_site])
         .build(tauri::generate_context!())
         .expect("error while building Lampstand")
         .run(|app, event| {

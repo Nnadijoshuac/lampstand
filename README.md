@@ -23,6 +23,15 @@ It runs on the church computer. Nothing is sent anywhere and there is nothing to
 - **Moving from Bible Show?** Import your Bible Show Bibles (`.bib` files, or the downloadable installers directly) and your projector themes (Settings, Projector, *Import from Bible Show*).
 - **A proper projector.** Full screen or lower third, black / cream / green-screen, transitions, words of Jesus in red, and it finds the second display by itself and comes back when HDMI is reconnected.
 
+## Translations
+
+The King James Version comes with Lampstand. In the app, open Bibles and choose **Add translation**:
+
+- **Get online** lists the free translations on the website (ASV, Berean Standard, BBE, Darby, Geneva, NHEB, Webster, Young's Literal) and adds one in a click.
+- **Upload a file** takes a Lampstand Bible file (`.lamp.json`) or a Bible Show version (the `.exe` installer or the `.bib` inside it). Translations that belong to publishers (NIV, NKJV, Amplified and others) can be downloaded free from Bible Show and added this way.
+
+A Lampstand Bible is plain JSON, described in `src/shared/lampBible.ts`. `scripts/build-bibles.py` builds the website's files from public-domain sources.
+
 ## How it works
 
 | Piece | Where |

@@ -565,3 +565,18 @@ input:focus, select:focus, button:focus { outline: none; }
 .th-stack { position: relative; }
 .th-lower-ref { bottom: 100%; overflow: visible; }
 .th-verse.justify { text-align: justify; text-align-last: left; }
+
+/* Bibles > Add translation */
+.add-tr { display: inline-flex; align-items: center; gap: 10px; padding: 12px 18px; border-radius: 12px; border: 1px dashed var(--line); background: transparent; color: var(--fg); font-weight: 600; transition: border-color .2s, transform .25s cubic-bezier(.34,1.56,.64,1); }
+.add-tr span { font-size: 20px; line-height: 1; }
+.add-tr:hover { border-color: var(--fg); transform: translateY(-1px); }
+.add-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; animation: fade-up .25s ease both; }
+.add-choice { display: flex; flex-direction: column; gap: 6px; text-align: left; padding: 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel2); color: var(--fg); cursor: pointer; transition: border-color .2s; }
+.add-choice:hover { border-color: var(--fg); }
+.add-choice b { font-size: 14px; }
+.add-choice span { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.add-cancel { grid-column: 1 / -1; justify-self: start; }
+.catalog { display: flex; flex-direction: column; gap: 4px; animation: fade-up .25s ease both; }
+.catalog .vline { padding: 8px 0; }
+.linkish { background: none; border: none; padding: 0; color: var(--fg); text-decoration: underline; font: inherit; cursor: pointer; }
+@keyframes fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

@@ -2,6 +2,7 @@ import { parseBib, type BibleModule } from '@shared/bib'
 import { BOOKS } from '@shared/books'
 import type { VerseLookup } from '@shared/tracker'
 import { extractBibFromInstaller, isJetDb } from '@shared/nsis'
+import { isLampBible, parseLampBible, type CatalogEntry } from '@shared/lampBible'
 import * as idb from './idb'
 
 /** Every Bible version the app knows, keyed by short name. */
@@ -37,11 +38,22 @@ export class Library {
     this.index.set(m.short, idx)
   }
 
-  /** Import a Bible Show version: the installer .exe, or the .bib inside it. */
+  /** Import a translation file: a Lampstand Bible (.lamp.json), or a Bible Show version (the installer .exe, or the .bib inside it). */
   async importFile(file: File): Promise<BibleModule> {
     let bytes: Uint8Array = new Uint8Array(await file.arrayBuffer())
+    if (isLampBible(bytes)) return this.keep(parseLampBible(JSON.parse(new TextDecoder().decode(bytes).replace(/^\uFEFF/, ''))))
     if (!isJetDb(bytes)) bytes = await extractBibFromInstaller(bytes)
-    const m = parseBib(bytes)
+    return this.keep(parseBib(bytes))
+  }
+
+  /** Download a translation from the online catalogue (the Lampstand website) and add it. */
+  async importFromCatalog(entry: CatalogEntry, base: string): Promise<BibleModule> {
+    const r = await fetch(base + entry.file)
+    if (!r.ok) throw new Error(`download failed (${r.status})`)
+    return this.keep(parseLampBible(await r.json()))
+  }
+
+  private async keep(m: BibleModule): Promise<BibleModule> {
     if (!m.verses.length) throw new Error('No verses found in this file')
     this.add(m)
     await idb.set('module:' + m.short, m)

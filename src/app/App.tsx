@@ -17,10 +17,14 @@ import { Slider, SpringPill, WindowControls, glideIndicators } from './controls'
 import { closeProjector, openProjector } from './projector'
 import { importBibleShowFolder, loadThemes, saveThemes } from './themes'
 import type { SlideTheme } from '@shared/bsTheme'
+import type { CatalogEntry } from '@shared/lampBible'
 import { ACTIONS, DEFAULT_BINDINGS, actionFor, comboOf, pretty, type ActionId, type Bindings } from './shortcuts'
 import { bus, type BusMessage, type OutputStyle, type Slide } from './bus'
 
 const lib = new Library()
+/** Where the free translations live (the Lampstand website). */
+const SITE = 'https://nnadijoshuac.github.io/lampstand/'
+const CATALOG = SITE + 'bibles/'
 const engine: SttEngine = new BarkEngine()
 const Grid = WidthProvider(Responsive)
 let engineReady: Promise<string> | undefined
@@ -713,6 +717,35 @@ export function App() {
     setStyle({ ...style, lookId: undefined })
   }
 
+  /** "+ Add translation": closed, or showing the two ways to add one. */
+  const [adding, setAdding] = useState<'menu' | 'online' | null>(null)
+  const [catalog, setCatalog] = useState<CatalogEntry[] | 'loading' | 'offline'>()
+  const [fetching, setFetching] = useState<string>()
+  async function openCatalog() {
+    setAdding('online')
+    if (Array.isArray(catalog)) return
+    setCatalog('loading')
+    try {
+      const r = await fetch(CATALOG + 'index.json', { cache: 'no-cache' })
+      if (!r.ok) throw new Error(String(r.status))
+      setCatalog(await r.json())
+    } catch { setCatalog('offline') }
+  }
+  async function addFromCatalog(e: CatalogEntry) {
+    setFetching(e.short)
+    try {
+      const m = await lib.importFromCatalog(e, CATALOG)
+      setVersions([...lib.modules.keys()])
+      setMsg(`Added ${m.name}`)
+    } catch (err) { setMsg(`${e.name}: ${(err as Error).message}`) }
+    setFetching(undefined)
+  }
+  function openWebsite(path = 'translations') {
+    const url = SITE + '#' + path
+    if (isDesktop) void import('@tauri-apps/api/core').then(({ invoke }) => invoke('open_site', { url })).catch(() => setMsg('Could not open the browser'))
+    else window.open(url, '_blank')
+  }
+
   async function importFiles(files: FileList | null) {
     if (!files) return
     for (const f of Array.from(files)) {
@@ -1108,11 +1141,41 @@ export function App() {
           </div>
           <div>
             <h2>Add translations</h2>
-            <label className="dropzone">
-              <b>Choose Bible Show versions</b>
-              <span>Pick the downloaded installer (.exe) as it is. Several at once is fine.</span>
-              <input type="file" accept=".exe,.bib" multiple onChange={(e) => { void importFiles(e.target.files); e.target.value = '' }} />
-            </label>
+            {!adding && <button className="add-tr" onClick={() => setAdding('menu')}><span>+</span> Add translation</button>}
+            {adding === 'menu' && (
+              <div className="add-choices">
+                <button className="add-choice" onClick={() => void openCatalog()}>
+                  <b>Get online</b>
+                  <span>Free translations from the Lampstand website, added in one click.</span>
+                </button>
+                <label className="add-choice">
+                  <b>Upload a file</b>
+                  <span>A translation you already have: a Lampstand Bible (.lamp.json), or a Bible Show version (.exe or .bib).</span>
+                  <input type="file" accept=".json,.exe,.bib" multiple hidden onChange={(e) => { void importFiles(e.target.files); e.target.value = ''; setAdding(null) }} />
+                </label>
+                <button className="mini-btn ghost add-cancel" onClick={() => setAdding(null)}>Cancel</button>
+              </div>
+            )}
+            {adding === 'online' && (
+              <div className="catalog">
+                {catalog === 'loading' && <p className="muted">Loading the list…</p>}
+                {catalog === 'offline' && <p className="muted">Couldn't reach the website. Check the internet connection, or download a translation on another computer and use Upload a file.</p>}
+                {Array.isArray(catalog) && catalog.map((e) => {
+                  const have = versions.includes(e.short)
+                  return (
+                    <div key={e.short} className="vline">
+                      <span className="vcode">{e.short}</span>
+                      <div className="vinfo"><b>{e.name}</b><span>{[e.year, e.license, Math.round(e.size / 1e5) / 10 + ' MB'].filter(Boolean).join(' · ')}</span></div>
+                      <div className="vactions">
+                        <button className="mini-btn" disabled={have || fetching === e.short} onClick={() => void addFromCatalog(e)}>{have ? 'Added' : fetching === e.short ? 'Adding…' : 'Add'}</button>
+                      </div>
+                    </div>
+                  )
+                })}
+                <p className="muted small-note">Translations like the NIV, NKJV or Amplified belong to their publishers, so they can't be shared here. <button className="linkish" onClick={() => openWebsite()}>See where to get them</button>, then add the file with Upload a file.</p>
+                <button className="mini-btn ghost" onClick={() => setAdding(null)}>Done</button>
+              </div>
+            )}
             <p className="muted small-note">The starred translation is used for every new scripture. When the preacher asks for another ("…in the Amplified"), that reading switches to it, and the next new scripture returns to the starred one.</p>
           </div>
         </div>

@@ -7,6 +7,7 @@ import SpotlightCard from './components/SpotlightCard'
 import Wordmark from './Wordmark'
 import Demo from './Demo'
 import Moment from './Moment'
+import Translations from './Translations'
 import { DOWNLOAD_SIZE, DOWNLOAD_URL, REPO_URL } from './links'
 
 type Theme = 'dark' | 'light'
@@ -58,6 +59,7 @@ export default function App() {
           <div className="hidden items-center gap-7 text-[13px] text-[var(--dim)] md:flex">
             <a className="hover:text-[var(--fg)]" href="#listen">How it works</a>
             <a className="hover:text-[var(--fg)]" href="#bible-show">From Bible Show</a>
+            <a className="hover:text-[var(--fg)]" href="#translations">Translations</a>
             <a className="hover:text-[var(--fg)]" href="#requirements">Requirements</a>
             <a className="hover:text-[var(--fg)]" href={REPO_URL}>Source</a>
           </div>
@@ -151,6 +153,8 @@ export default function App() {
             </div>
           </div>
         </section>
+
+        <Translations />
 
         <section id="requirements" className="border-t border-[var(--line)]">
           <div className="mx-auto max-w-[1400px] px-5 py-32 sm:px-10">
