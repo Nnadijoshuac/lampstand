@@ -593,3 +593,7 @@ input:focus, select:focus, button:focus { outline: none; }
 .models-bar .err { color: #e08a7a; }
 .models-progress { width: 180px; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
 .models-progress i { display: block; height: 100%; background: var(--gold); transition: width .6s; }
+
+/* Previews: the slide is laid out at the projector's size inside .screen-canvas, then scaled down (ScreenFrame). */
+.screen-frame { position: absolute; inset: 0; overflow: hidden; }
+.screen-canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; container-type: size; }

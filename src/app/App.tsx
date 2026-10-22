@@ -12,9 +12,9 @@ import { MARGIN, ROWS, sameLayout, screenLeftover, settle, type Item } from './l
 import { BarkEngine, Listener, isDesktop, trace, type SttEngine } from './stt'
 import { linked, related, xrefsReady } from './xref'
 import { CUE, aiReady, recall, rerank, route, type Action } from './ai'
-import { DEFAULT_STYLE, SlideView, themeScale } from './Output'
+import { DEFAULT_STYLE, FULL_HD, ScreenFrame, SlideView, themeScale } from './Output'
 import { Slider, SpringPill, WindowControls, glideIndicators } from './controls'
-import { closeProjector, openProjector } from './projector'
+import { closeProjector, displaySize, openProjector, projecting } from './projector'
 import { importBibleShowFolder, loadThemes, saveThemes } from './themes'
 import type { SlideTheme } from '@shared/bsTheme'
 import type { CatalogEntry } from '@shared/lampBible'
@@ -133,6 +133,20 @@ export function App() {
   const [searchStatus, setSearchStatus] = useState('')
   const [listening, setListening] = useState(false)
   const { update, updating, install, models, getModels } = useUpdates()
+  // The projector's size: previews lay the slide out at exactly this size, then shrink it (see ScreenFrame).
+  const [screen, setScreen] = useState<{ w: number; h: number }>(() => {
+    try { const s = JSON.parse(localStorage.getItem('lampstand-screen') ?? ''); if (s.w > 0 && s.h > 0) return s } catch { /* first run */ }
+    return FULL_HD
+  })
+  useEffect(() => { try { localStorage.setItem('lampstand-screen', JSON.stringify(screen)) } catch { /* private mode */ } }, [screen])
+  useEffect(() => {
+    const fromDisplay = () => void displaySize().then((s) => { if (s && !projecting()) setScreen((o) => (o.w === s.w && o.h === s.h ? o : s)) })
+    fromDisplay()
+    if (!isDesktop) return
+    let off: (() => void) | undefined
+    void import('@tauri-apps/api/event').then(({ listen }) => listen('displays-changed', () => setTimeout(fromDisplay, 1200))).then((u) => { off = u })
+    return () => off?.()
+  }, [])
   const [level, setLevel] = useState(0)
   const [modelPct, setModelPct] = useState<number | null>(null)
   const [command, setCommand] = useState('')
@@ -273,6 +287,7 @@ export function App() {
   useEffect(() => { bus.postMessage({ type: 'style', style: screenStyle } satisfies BusMessage) }, [style, look])
   useEffect(() => {
     bus.onmessage = (e: MessageEvent<BusMessage>) => {
+      if (e.data.type === 'screen') { if (projecting() && e.data.w > 0 && e.data.h > 0) setScreen({ w: e.data.w, h: e.data.h }); return }
       if (e.data.type !== 'hello') return
       bus.postMessage({ type: 'style', style: screenStyle } satisfies BusMessage)
       bus.postMessage({ type: 'slide', slide: liveRef.current ? slideFor(passageRef.current, versionRef.current) : { reference: '', version: versionRef.current, html: '', blank: true } } satisfies BusMessage)
@@ -1068,8 +1083,10 @@ export function App() {
               <Widget title={frozen ? 'Screen · Frozen' : 'Screen'} className="fixed screen-body" right={<><span className={'dot' + (live ? ' live' : '')} />
                 <button className={'mini-btn' + (frozen ? ' on' : '')} title="Freeze (F7)" onClick={() => setFrozen(!frozen)}>Freeze</button>
                 <button className="mini-btn" onClick={openOutput}>Open</button><button className="mini-btn" onClick={closeOutput}>Close</button></>}>
-                <div className="mini">
-                  <SlideView slide={frozenSlide ?? (live && passage ? slide : { ...slide, blank: true })} style={{ ...screenStyle, theme: outTheme }} unit="cqmin" />
+                <div className="mini" style={{ aspectRatio: `${screen.w} / ${screen.h}` }}>
+                  <ScreenFrame w={screen.w} h={screen.h}>
+                    <SlideView slide={frozenSlide ?? (live && passage ? slide : { ...slide, blank: true })} style={{ ...screenStyle, theme: outTheme }} unit="cqmin" />
+                  </ScreenFrame>
                 </div>
               </Widget>
             </div>
@@ -1245,8 +1262,10 @@ export function App() {
           <div className="settings-body">
             {settingsTab === 'projector' && (
               <div className="settings-split">
-                <div className="mini big">
-                  <SlideView slide={slideFor({ ...(passage ?? { book: 0, chapter: 1, first: 1, last: 1, current: 1, wholeChapter: false }), current: (passage?.current ?? 1) + previewStep }, version)} style={{ ...screenStyle, theme: outTheme }} unit="cqmin" />
+                <div className="mini big" style={{ aspectRatio: `${screen.w} / ${screen.h}` }}>
+                  <ScreenFrame w={screen.w} h={screen.h}>
+                    <SlideView slide={slideFor({ ...(passage ?? { book: 0, chapter: 1, first: 1, last: 1, current: 1, wholeChapter: false }), current: (passage?.current ?? 1) + previewStep }, version)} style={{ ...screenStyle, theme: outTheme }} unit="cqmin" />
+                  </ScreenFrame>
                 </div>
                 <div>
                   <div className="group-label first">Theme</div>

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { bus, type BusMessage, type OutputStyle, type Slide } from './bus'
 import type { Box, SlideTheme, TextLook } from '@shared/bsTheme'
 
@@ -26,6 +26,8 @@ function useFit(box: RefObject<HTMLDivElement>, text: RefObject<HTMLDivElement>,
       }
     }
     fit()
+    // Fit again once the fonts are in: measured with a fallback font, the size would differ from the projector's.
+    void document.fonts?.ready.then(fit)
     const ro = new ResizeObserver(fit)
     if (box.current) ro.observe(box.current)
     return () => ro.disconnect()
@@ -197,6 +199,39 @@ export function SlideView({ slide, style, unit }: { slide: Slide; style: OutputS
   )
 }
 
+/** The projector's size when it hasn't reported one: a 1080p screen. */
+export const FULL_HD = { w: 1920, h: 1080 }
+
+/**
+ * The program, as the operator sees it. The slide is laid out at the projector's own size (w × h CSS pixels, the
+ * same box the projector lays out in) and then shrunk as a picture to fit. Line breaks, text sizes and positions
+ * are worked out at full size, so the preview is the projector, pixel for pixel, only smaller.
+ */
+export function ScreenFrame({ w, h, children }: { w: number; h: number; children: ReactNode }) {
+  const outer = useRef<HTMLDivElement>(null)
+  const [fit, setFit] = useState({ s: 0, x: 0, y: 0 })
+  useLayoutEffect(() => {
+    const el = outer.current
+    if (!el) return
+    const measure = () => {
+      const cw = el.clientWidth, ch = el.clientHeight
+      const s = Math.min(cw / w, ch / h)
+      setFit({ s, x: (cw - w * s) / 2, y: (ch - h * s) / 2 })
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [w, h])
+  return (
+    <div ref={outer} className="screen-frame">
+      <div className="screen-canvas" style={{ width: w, height: h, transform: `translate(${fit.x}px, ${fit.y}px) scale(${fit.s})`, visibility: fit.s ? 'visible' : 'hidden' }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 /** Fullscreen projector window. */
 export function Output() {
   const [slide, setSlide] = useState<Slide>({ reference: '', version: '', html: '', blank: true })
@@ -208,6 +243,15 @@ export function Output() {
       if (e.data.type === 'style') setStyle(e.data.style)
     }
     bus.postMessage({ type: 'hello' } satisfies BusMessage)
+    // Only a full-screen projector speaks for the screen. When HDMI drops, the window leaves full screen and hides,
+    // and the preview keeps the last real size instead of taking the leftover window's.
+    const size = () => {
+      const w = window.innerWidth, h = window.innerHeight
+      if (Math.abs(w - window.screen.width) <= 1 && Math.abs(h - window.screen.height) <= 1) bus.postMessage({ type: 'screen', w, h } satisfies BusMessage)
+    }
+    size()
+    window.addEventListener('resize', size)
+    return () => window.removeEventListener('resize', size)
   }, [])
 
   return <div className="output"><SlideView slide={slide} style={style} unit="vmin" /></div>

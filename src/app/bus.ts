@@ -32,5 +32,7 @@ export type BusMessage =
   | { type: 'slide'; slide: Slide }
   | { type: 'style'; style: OutputStyle }
   | { type: 'hello' }
+  /** The projector's size in CSS pixels, so the operator's preview lays out at exactly that size. */
+  | { type: 'screen'; w: number; h: number }
 
 export const bus = new BroadcastChannel('lampstand')
