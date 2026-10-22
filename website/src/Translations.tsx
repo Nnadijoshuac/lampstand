@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { count } from './count'
 
 interface Entry {
   id: string
@@ -72,12 +73,12 @@ export default function Translations() {
                   <span className="text-sm text-[var(--muted)]">{[e.language, e.year, e.source === 'lampstand' || e.source === 'builtin' ? 'Free' : e.copyright].filter(Boolean).join(' · ')}</span>
                 </span>
                 {e.source === 'lampstand' && (
-                  <a href={'./bibles/' + e.file} download className="shrink-0 text-sm font-medium text-[var(--fg)] hover:underline">
+                  <a href={'./bibles/' + e.file} download onClick={() => count('translation-' + e.short, true)} className="shrink-0 text-sm font-medium text-[var(--fg)] hover:underline">
                     Download <span className="text-[var(--muted)]">{typeof e.size === 'number' ? (e.size / 1e6).toFixed(1) + ' MB' : ''}</span>
                   </a>
                 )}
                 {e.source === 'bibleshow' && (
-                  <a href={BIBLE_SHOW} target="_blank" rel="noreferrer" className="shrink-0 text-sm text-[var(--dim)] hover:text-[var(--fg)]">On Bible Show</a>
+                  <a href={BIBLE_SHOW} onClick={() => count('bibleshow-' + e.short, true)} target="_blank" rel="noreferrer" className="shrink-0 text-sm text-[var(--dim)] hover:text-[var(--fg)]">On Bible Show</a>
                 )}
                 {e.source === 'builtin' && <span className="shrink-0 text-sm text-[var(--muted)]">In the app</span>}
                 {e.source === 'held' && <span className="shrink-0 text-sm text-[var(--muted)]" title="Numbers the Psalms the Greek or Latin way. Coming once Lampstand converts the numbering.">Coming soon</span>}

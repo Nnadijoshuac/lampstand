@@ -10,6 +10,7 @@ import Moment from './Moment'
 import Translations from './Translations'
 import { DOWNLOAD_SIZE, DOWNLOAD_URL, REPO_URL } from './links'
 import { useRoute } from './route'
+import { count } from './count'
 
 type Theme = 'dark' | 'light'
 
@@ -92,7 +93,7 @@ export default function App() {
                 church computer and it is free.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-5">
-                <StarBorder as="a" href={DOWNLOAD_URL} theme={light ? 'light' : 'dark'} color={light ? '#b8892e' : '#f3e2b8'} className="text-sm font-semibold">
+                <StarBorder as="a" href={DOWNLOAD_URL} onClick={() => count('download-windows', true)} theme={light ? 'light' : 'dark'} color={light ? '#b8892e' : '#f3e2b8'} className="text-sm font-semibold">
                   Download for Windows
                 </StarBorder>
                 <a href={REPO_URL} className="group text-sm font-medium text-[var(--dim)] hover:text-[var(--fg)]">Read the source <Arrow /></a>
@@ -183,7 +184,7 @@ export default function App() {
               <p className="mt-6 max-w-md text-[var(--dim)]">Download it, unzip it and press Listen. There is nothing to sign up for.</p>
             </FadeContent>
             <div className="grid gap-4 lg:col-span-6">
-              <a href={DOWNLOAD_URL} className="group block">
+              <a href={DOWNLOAD_URL} onClick={() => count('download-windows', true)} className="group block">
                 <SpotlightCard theme={light ? 'light' : 'dark'} spotlightColor={light ? 'rgba(184,137,46,0.2)' : 'rgba(243,226,184,0.16)'} className="rounded-2xl p-7">
                   <div className="flex items-baseline justify-between gap-6">
                     <div>

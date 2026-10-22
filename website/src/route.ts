@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { count } from './count'
 
 export type Route = 'home' | 'translations' | 'download'
 
@@ -10,6 +11,7 @@ const read = (): Route => {
 /** The page in the address (#/translations, #/download). GitHub Pages serves one file, so pages live after the #. */
 export function useRoute(): Route {
   const [route, setRoute] = useState(read)
+  useEffect(() => count('/' + (route === 'home' ? '' : route)), [route])
   useEffect(() => {
     const on = () => {
       const next = read()
