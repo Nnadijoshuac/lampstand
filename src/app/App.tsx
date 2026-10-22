@@ -877,7 +877,8 @@ export function App() {
 
   // The projector has its own look; it stays black even when the operator uses Cream.
   const outTheme: OutputStyle['theme'] = style.theme
-  const rowH = Math.max(6, (gridH - 2 * MARGIN - (ROWS - 1) * MARGIN) / ROWS)
+  // Rows may get very short on a small screen (1080p at 150% leaves 620 points for 48 rows and their gaps); the grid must still fit exactly.
+  const rowH = Math.max(1, (gridH - 2 * MARGIN - (ROWS - 1) * MARGIN) / ROWS)
   const colW = (stageW - 2 * MARGIN - (COLS[bp] - 1) * MARGIN) / COLS[bp]
   // What is saved is the operator's own arrangement; it changes only when they drag or resize a widget.
   // What is shown is that arrangement fitted to the window as it is now (Screen keeps 16:9, nothing leaves
