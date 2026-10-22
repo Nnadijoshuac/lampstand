@@ -21,8 +21,22 @@ export interface LampBible {
   books: string[][][]
 }
 
-/** One entry of the online catalogue (website/public/bibles/index.json). */
-export interface CatalogEntry { short: string; name: string; year?: number; language?: string; license?: string; file: string; size: number; verses: number }
+/**
+ * One entry of the online catalogue (website/public/bibles/index.json, built by scripts/build-catalog.py): every
+ * translation Bible Show offers, and where to get it. "lampstand": hosted as a Lampstand Bible (`file`).
+ * "bibleshow": belongs to its publisher, download it from Bible Show. "builtin": the KJV. "held": coming soon.
+ */
+export interface CatalogEntry {
+  id: string
+  short: string
+  name: string
+  year?: number
+  language: string
+  copyright: string
+  source: 'lampstand' | 'bibleshow' | 'builtin' | 'held'
+  file?: string
+  size?: number | string
+}
 
 const stripTags = (s: string) => s.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
 

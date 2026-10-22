@@ -70,10 +70,11 @@ fn log_line(line: String) {
     }
 }
 
-/// Opens a Lampstand web page (the translations catalogue) in the default browser. Only our own site.
+/// Opens a Lampstand web page, or Bible Show's downloads page, in the default browser. Nothing else.
 #[tauri::command]
 fn open_site(url: String) -> Result<(), String> {
-    if !url.starts_with("https://nnadijoshuac.github.io/lampstand/") || url.contains('"') {
+    let ours = url.starts_with("https://nnadijoshuac.github.io/lampstand/");
+    if !(ours || url == "https://www.bibleshow.net/download.php") || url.contains('"') {
         return Err("not a Lampstand page".into());
     }
     #[cfg(windows)]

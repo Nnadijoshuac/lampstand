@@ -9,6 +9,7 @@ import Demo from './Demo'
 import Moment from './Moment'
 import Translations from './Translations'
 import { DOWNLOAD_SIZE, DOWNLOAD_URL, REPO_URL } from './links'
+import { useRoute } from './route'
 
 type Theme = 'dark' | 'light'
 
@@ -49,30 +50,30 @@ export default function App() {
     window.addEventListener('scroll', on, { passive: true })
     return () => window.removeEventListener('scroll', on)
   }, [])
+  const route = useRoute()
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--fg)] transition-colors duration-500">
       <header className={'fixed inset-x-0 top-0 z-40 transition-[background-color,backdrop-filter,border-color] duration-500 ' + (scrolled ? 'border-b border-[var(--line)] bg-[var(--bg)]/75 backdrop-blur-xl' : 'border-b border-transparent')}>
         <nav className="mx-auto flex h-16 max-w-[1400px] items-center gap-8 px-5 sm:px-10">
-          <a href="#top" className="flex items-center gap-2.5 text-[15px] font-semibold tracking-tight">
+          <a href="#/" className="flex items-center gap-2.5 text-[15px] font-semibold tracking-tight">
             <img src="./logo.png" alt="" className="h-6 w-6" /> Lampstand
           </a>
           <div className="hidden items-center gap-7 text-[13px] text-[var(--dim)] md:flex">
-            <a className="hover:text-[var(--fg)]" href="#listen">How it works</a>
-            <a className="hover:text-[var(--fg)]" href="#bible-show">From Bible Show</a>
-            <a className="hover:text-[var(--fg)]" href="#translations">Translations</a>
-            <a className="hover:text-[var(--fg)]" href="#requirements">Requirements</a>
+            <a className={route === 'translations' ? 'text-[var(--fg)]' : 'hover:text-[var(--fg)]'} href="#/translations">Translations</a>
+            <a className={route === 'download' ? 'text-[var(--fg)]' : 'hover:text-[var(--fg)]'} href="#/download">Download</a>
             <a className="hover:text-[var(--fg)]" href={REPO_URL}>Source</a>
           </div>
           <div className="ml-auto flex items-center gap-3">
             <button onClick={toggle} aria-label="Switch between light and dark" className="grid h-8 w-8 place-items-center rounded-full text-[var(--dim)] hover:text-[var(--fg)]">
               {light ? '☾' : '☀'}
             </button>
-            <a href="#download" className="rounded-full bg-[var(--fg)] px-4 py-1.5 text-[13px] font-medium text-[var(--bg)] transition hover:opacity-85">Download</a>
+            <a href="#/download" className="rounded-full bg-[var(--fg)] px-4 py-1.5 text-[13px] font-medium text-[var(--bg)] transition hover:opacity-85">Download</a>
           </div>
         </nav>
       </header>
 
-      <main id="top">
+      {route === 'home' && (
+        <main id="top">
         <section className="relative flex min-h-[100svh] flex-col justify-end overflow-hidden pb-14 pt-28">
           <div className="pointer-events-none absolute inset-0">
             <LightRays raysOrigin="top-right" raysColor={light ? '#b8892e' : '#f3e2b8'} raysSpeed={0.5} lightSpread={1.1} rayLength={2.2} intensity={light ? 0.45 : 0.8} lightMode={light} followMouse mouseInfluence={0.05} />
@@ -154,7 +155,52 @@ export default function App() {
           </div>
         </section>
 
-        <Translations />
+          <section className="border-t border-[var(--line)]">
+            <div className="mx-auto grid max-w-[1400px] gap-6 px-5 py-24 sm:px-10 md:grid-cols-2">
+              <a href="#/download" className="group rounded-2xl border border-[var(--line)] p-8 transition hover:border-[var(--fg)]">
+                <div className="text-sm text-[var(--muted)]">Windows 10 and 11</div>
+                <div className="mt-2 text-3xl font-semibold tracking-tight">Download Lampstand <Arrow /></div>
+                <p className="mt-4 text-[var(--dim)]">Free, with everything it needs inside. See what your computer needs first.</p>
+              </a>
+              <a href="#/translations" className="group rounded-2xl border border-[var(--line)] p-8 transition hover:border-[var(--fg)]">
+                <div className="text-sm text-[var(--muted)]">400 translations, 80 languages</div>
+                <div className="mt-2 text-3xl font-semibold tracking-tight">Find your translation <Arrow /></div>
+                <p className="mt-4 text-[var(--dim)]">Every translation Bible Show offers, and where to get each one.</p>
+              </a>
+            </div>
+          </section>
+        </main>
+      )}
+
+      {route === 'translations' && <main id="top"><Translations /></main>}
+
+      {route === 'download' && (
+        <main id="top" className="pt-16">
+        <section id="download" className="relative overflow-hidden border-t border-[var(--line)]">
+          <div className="mx-auto grid max-w-[1400px] gap-12 px-5 py-32 sm:px-10 lg:grid-cols-12 lg:items-end">
+            <FadeContent effect="fade" className="lg:col-span-6">
+              <h2 className="text-[clamp(2.6rem,5.4vw,5.2rem)] font-semibold leading-[0.98] tracking-[-0.045em]">Free for every church.</h2>
+              <p className="mt-6 max-w-md text-[var(--dim)]">Download it, unzip it and press Listen. There is nothing to sign up for.</p>
+            </FadeContent>
+            <div className="grid gap-4 lg:col-span-6">
+              <a href={DOWNLOAD_URL} className="group block">
+                <SpotlightCard theme={light ? 'light' : 'dark'} spotlightColor={light ? 'rgba(184,137,46,0.2)' : 'rgba(243,226,184,0.16)'} className="rounded-2xl p-7">
+                  <div className="flex items-baseline justify-between gap-6">
+                    <div>
+                      <div className="text-sm text-[var(--dim)]">Windows 10 and 11 · 64-bit</div>
+                      <div className="mt-2 text-2xl font-semibold tracking-tight">Download for Windows</div>
+                    </div>
+                    <div className="text-2xl"><Arrow /></div>
+                  </div>
+                  <div className="mt-6 text-sm text-[var(--muted)]">{DOWNLOAD_SIZE} portable .zip, speech and AI models included</div>
+                </SpotlightCard>
+              </a>
+              <a href={REPO_URL + '#build-from-source'} className="group flex items-baseline justify-between rounded-2xl border border-[var(--line)] px-7 py-5 text-[var(--dim)] transition hover:text-[var(--fg)]">
+                <span>On a Mac or Linux? You can build it from the source today.</span><Arrow />
+              </a>
+            </div>
+          </div>
+        </section>
 
         <section id="requirements" className="border-t border-[var(--line)]">
           <div className="mx-auto max-w-[1400px] px-5 py-32 sm:px-10">
@@ -186,32 +232,6 @@ export default function App() {
           </div>
         </section>
 
-        <section id="download" className="relative overflow-hidden border-t border-[var(--line)]">
-          <div className="mx-auto grid max-w-[1400px] gap-12 px-5 py-32 sm:px-10 lg:grid-cols-12 lg:items-end">
-            <FadeContent effect="fade" className="lg:col-span-6">
-              <h2 className="text-[clamp(2.6rem,5.4vw,5.2rem)] font-semibold leading-[0.98] tracking-[-0.045em]">Free for every church.</h2>
-              <p className="mt-6 max-w-md text-[var(--dim)]">Download it, unzip it and press Listen. There is nothing to sign up for.</p>
-            </FadeContent>
-            <div className="grid gap-4 lg:col-span-6">
-              <a href={DOWNLOAD_URL} className="group block">
-                <SpotlightCard theme={light ? 'light' : 'dark'} spotlightColor={light ? 'rgba(184,137,46,0.2)' : 'rgba(243,226,184,0.16)'} className="rounded-2xl p-7">
-                  <div className="flex items-baseline justify-between gap-6">
-                    <div>
-                      <div className="text-sm text-[var(--dim)]">Windows 10 and 11 · 64-bit</div>
-                      <div className="mt-2 text-2xl font-semibold tracking-tight">Download for Windows</div>
-                    </div>
-                    <div className="text-2xl"><Arrow /></div>
-                  </div>
-                  <div className="mt-6 text-sm text-[var(--muted)]">{DOWNLOAD_SIZE} portable .zip, speech and AI models included</div>
-                </SpotlightCard>
-              </a>
-              <a href={REPO_URL + '#build-from-source'} className="group flex items-baseline justify-between rounded-2xl border border-[var(--line)] px-7 py-5 text-[var(--dim)] transition hover:text-[var(--fg)]">
-                <span>On a Mac or Linux? You can build it from the source today.</span><Arrow />
-              </a>
-            </div>
-          </div>
-        </section>
-
         <section className="border-t border-[var(--line)]">
           <div className="mx-auto grid max-w-[1400px] gap-8 px-5 py-20 text-sm sm:px-10 lg:grid-cols-12">
             <div className="text-[var(--muted)] lg:col-span-3">Built on</div>
@@ -225,7 +245,8 @@ export default function App() {
             </ul>
           </div>
         </section>
-      </main>
+        </main>
+      )}
 
       <footer className="border-t border-[var(--line)]">
         <div className="mx-auto flex max-w-[1400px] flex-col gap-4 px-5 py-10 text-sm text-[var(--muted)] sm:flex-row sm:items-baseline sm:px-10">

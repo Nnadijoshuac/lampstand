@@ -1,0 +1,42 @@
+[
+ {
+  "short": "BBE",
+  "name": "Bible in Basic English",
+  "year": 1965,
+  "language": "en",
+  "license": "Public domain",
+  "file": "BBE.lamp.json",
+  "size": 4235374,
+  "verses": 31102
+ },
+ {
+  "short": "GNV",
+  "name": "Geneva Bible",
+  "year": 1599,
+  "language": "en",
+  "license": "Public domain",
+  "file": "GNV.lamp.json",
+  "size": 4250371,
+  "verses": 31104
+ },
+ {
+  "short": "NHEB",
+  "name": "New Heart English Bible",
+  "year": 2010,
+  "language": "en",
+  "license": "Public domain",
+  "file": "NHEB.lamp.json",
+  "size": 4107313,
+  "verses": 31104
+ },
+ {
+  "short": "WBT",
+  "name": "Webster Bible",
+  "year": 1833,
+  "language": "en",
+  "license": "Public domain",
+  "file": "WBT.lamp.json",
+  "size": 4220136,
+  "verses": 31102
+ }
+]

@@ -580,3 +580,7 @@ input:focus, select:focus, button:focus { outline: none; }
 .catalog .vline { padding: 8px 0; }
 .linkish { background: none; border: none; padding: 0; color: var(--fg); text-decoration: underline; font: inherit; cursor: pointer; }
 @keyframes fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.catalog-filter { display: flex; gap: 8px; margin-bottom: 6px; }
+.catalog-filter input { flex: 1; min-width: 0; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 11px; color: var(--fg); }
+.catalog-list { max-height: 46vh; overflow-y: auto; padding-right: 6px; }

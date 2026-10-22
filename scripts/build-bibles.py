@@ -1,4 +1,5 @@
-"""Builds the downloadable translations for the website (website/public/bibles/) in the Lampstand Bible format.
+"""Builds the public-domain translations Bible Show does not carry (website/public/bibles/) in the Lampstand Bible format.
+scripts/convert-bibleshow.ts converts the rest; scripts/build-catalog.py lists everything.
 
 Source: scrollmapper/bible_databases (MIT), public-domain English translations only.
 usage: python scripts/build-bibles.py <folder with the source JSON files>
@@ -26,14 +27,10 @@ BOOKS = ['Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy', 'Joshua', '
          '1 Peter', '2 Peter', '1 John', '2 John', '3 John', 'Jude', 'Revelation']
 
 TRANSLATIONS = [
-    ('ASV', 'American Standard Version', 1901, 'ASV.json'),
     ('BBE', 'Bible in Basic English', 1965, 'BBE.json'),
-    ('BSB', 'Berean Standard Bible', 2023, 'BSB.json'),
-    ('DARBY', 'Darby Translation', 1890, 'Darby.json'),
     ('GNV', 'Geneva Bible', 1599, 'Geneva1599.json'),
     ('NHEB', 'New Heart English Bible', 2010, 'NHEB.json'),
     ('WBT', 'Webster Bible', 1833, 'Webster.json'),
-    ('YLT', "Young's Literal Translation", 1898, 'YLT.json'),
 ]
 
 
@@ -68,4 +65,4 @@ for short, name, year, file in TRANSLATIONS:
     index.append({'short': short, 'name': name, 'year': year, 'language': 'en', 'license': 'Public domain',
                   'file': f'{short}.lamp.json', 'size': os.path.getsize(path), 'verses': verses})
     print(short, verses, round(os.path.getsize(path) / 1e6, 1), 'MB')
-json.dump(index, open(os.path.join(OUT, 'index.json'), 'w', encoding='utf8'), ensure_ascii=False, indent=1)
+json.dump(index, open(os.path.join(OUT, 'scrollmapper.json'), 'w', encoding='utf8'), ensure_ascii=False, indent=1)

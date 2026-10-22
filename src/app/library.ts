@@ -48,6 +48,7 @@ export class Library {
 
   /** Download a translation from the online catalogue (the Lampstand website) and add it. */
   async importFromCatalog(entry: CatalogEntry, base: string): Promise<BibleModule> {
+    if (!entry.file) throw new Error('not hosted by Lampstand')
     const r = await fetch(base + entry.file)
     if (!r.ok) throw new Error(`download failed (${r.status})`)
     return this.keep(parseLampBible(await r.json()))

@@ -740,6 +740,15 @@ export function App() {
     } catch (err) { setMsg(`${e.name}: ${(err as Error).message}`) }
     setFetching(undefined)
   }
+  const [catalogQuery, setCatalogQuery] = useState('')
+  const [catalogLang, setCatalogLang] = useState('All')
+  /** Bible Show's downloads page: the translation is picked there (language, then version), then uploaded here. */
+  function openBibleShow(e: CatalogEntry) {
+    setMsg(`On Bible Show, pick ${e.language}, then ${e.name}. Then come back and choose Upload a file.`)
+    const url = 'https://www.bibleshow.net/download.php'
+    if (isDesktop) void import('@tauri-apps/api/core').then(({ invoke }) => invoke('open_site', { url })).catch(() => setMsg('Could not open the browser'))
+    else window.open(url, '_blank')
+  }
   function openWebsite(path = 'translations') {
     const url = SITE + '#' + path
     if (isDesktop) void import('@tauri-apps/api/core').then(({ invoke }) => invoke('open_site', { url })).catch(() => setMsg('Could not open the browser'))
@@ -1160,19 +1169,43 @@ export function App() {
               <div className="catalog">
                 {catalog === 'loading' && <p className="muted">Loading the list…</p>}
                 {catalog === 'offline' && <p className="muted">Couldn't reach the website. Check the internet connection, or download a translation on another computer and use Upload a file.</p>}
-                {Array.isArray(catalog) && catalog.map((e) => {
-                  const have = versions.includes(e.short)
+                {Array.isArray(catalog) && (() => {
+                  const q = catalogQuery.trim().toLowerCase()
+                  const languages = [...new Set(catalog.map((e) => e.language))].sort((x, y) => (x === 'English' ? -1 : y === 'English' ? 1 : x.localeCompare(y)))
+                  const shown = catalog.filter((e) => (catalogLang === 'All' || e.language === catalogLang) &&
+                    (!q || `${e.short} ${e.name} ${e.language} ${e.year ?? ''}`.toLowerCase().includes(q)))
                   return (
-                    <div key={e.short} className="vline">
-                      <span className="vcode">{e.short}</span>
-                      <div className="vinfo"><b>{e.name}</b><span>{[e.year, e.license, Math.round(e.size / 1e5) / 10 + ' MB'].filter(Boolean).join(' · ')}</span></div>
-                      <div className="vactions">
-                        <button className="mini-btn" disabled={have || fetching === e.short} onClick={() => void addFromCatalog(e)}>{have ? 'Added' : fetching === e.short ? 'Adding…' : 'Add'}</button>
+                    <>
+                      <div className="catalog-filter">
+                        <input value={catalogQuery} onChange={(ev) => setCatalogQuery(ev.target.value)} placeholder={`Search ${catalog.length} translations`} spellCheck={false} />
+                        <select value={catalogLang} onChange={(ev) => setCatalogLang(ev.target.value)}>
+                          <option value="All">All languages</option>
+                          {languages.map((l) => <option key={l} value={l}>{l}</option>)}
+                        </select>
                       </div>
-                    </div>
+                      <div className="catalog-list">
+                        {shown.map((e) => {
+                          const have = versions.includes(e.short)
+                          const size = typeof e.size === 'number' ? Math.round(e.size / 1e5) / 10 + ' MB' : e.size
+                          return (
+                            <div key={e.id} className="vline">
+                              <span className="vcode">{e.short}</span>
+                              <div className="vinfo"><b>{e.name}</b><span>{[e.language, e.year, e.source === 'lampstand' ? 'Free' : e.copyright, size].filter(Boolean).join(' · ')}</span></div>
+                              <div className="vactions">
+                                {e.source === 'lampstand' && <button className="mini-btn" disabled={have || fetching === e.short} onClick={() => void addFromCatalog(e)}>{have ? 'Added' : fetching === e.short ? 'Adding…' : 'Add'}</button>}
+                                {e.source === 'bibleshow' && (have ? <button className="mini-btn" disabled>Added</button> : <button className="mini-btn ghost" title="Download it from Bible Show, then come back and choose Upload a file" onClick={() => openBibleShow(e)}>From Bible Show</button>)}
+                                {e.source === 'builtin' && <button className="mini-btn" disabled>Built in</button>}
+                                {e.source === 'held' && <button className="mini-btn" disabled title="Numbers the Psalms the Greek or Latin way. Coming once Lampstand converts the numbering.">Coming soon</button>}
+                              </div>
+                            </div>
+                          )
+                        })}
+                        {!shown.length && <p className="muted">No translation matches.</p>}
+                      </div>
+                    </>
                   )
-                })}
-                <p className="muted small-note">Translations like the NIV, NKJV or Amplified belong to their publishers, so they can't be shared here. <button className="linkish" onClick={() => openWebsite()}>See where to get them</button>, then add the file with Upload a file.</p>
+                })()}
+                <p className="muted small-note">Free translations are added straight away. The others belong to their publishers, so Bible Show offers them instead. Choose From Bible Show, download the file there, then come back and use Upload a file. There's no need to unpack it.</p>
                 <button className="mini-btn ghost" onClick={() => setAdding(null)}>Done</button>
               </div>
             )}
