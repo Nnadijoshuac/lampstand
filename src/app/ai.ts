@@ -17,11 +17,14 @@ let waiting: Promise<string | undefined> | undefined
 async function waitForServer(): Promise<string | undefined> {
   let url: string | undefined
   if (isDesktop) {
+    // The AI may start later: after the listening download finishes, the app starts it without a restart.
     const { invoke } = await import('@tauri-apps/api/core')
-    const port = await invoke<number | null>('ai_port')
-    if (port) url = `http://127.0.0.1:${port}`
+    for (let i = 0; !url; i++) {
+      const port = await invoke<number | null>('ai_port')
+      if (port) url = `http://127.0.0.1:${port}`
+      else { if (i === 0) trace('ai: not started yet (models missing, or less than 8 GB of memory)'); await new Promise((r) => setTimeout(r, 3000)) }
+    }
   } else url = 'http://127.0.0.1:8790' // development: run llama-server yourself
-  if (!url) { trace('ai: not started (llama-server missing or failed to launch)'); return }
   const t0 = Date.now()
   for (let i = 0; ; i++) {
     try { if ((await fetch(url + '/health')).ok) break } catch { /* still starting */ }

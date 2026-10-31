@@ -2,6 +2,11 @@
 
 Lampstand uses [semantic versioning](https://semver.org): 1.0.x releases fix and improve without changing how the app is used.
 
+## 1.0.5 (2026-10-31)
+
+- After the one-time listening download, the AI joins straight away. Before, it waited for Lampstand to be restarted.
+- Turn on listening: a short bar with Download and Not now, and Pause while it downloads.
+
 ## 1.0.4 (2026-10-31)
 
 - Read ahead (Settings, AI & Listening). Readers see the end of a verse before they say it, so the next verse goes up 3, 4 or 5 syllables early. If they stop to explain, the verse they are explaining comes back.
