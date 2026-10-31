@@ -20,7 +20,7 @@ import { importBibleShowFolder, loadThemes, saveThemes } from './themes'
 import type { SlideTheme } from '@shared/bsTheme'
 import type { CatalogEntry } from '@shared/lampBible'
 import { ACTIONS, DEFAULT_BINDINGS, actionFor, comboOf, hintFor, pretty, withAdded, type ActionId, type Bindings } from './shortcuts'
-import { bus, type BusMessage, type OutputStyle, type Slide } from './bus'
+import { bus, send, setFeedOn, type BusMessage, type OutputStyle, type Slide } from './bus'
 import { SITE, useUpdates } from './update'
 
 const lib = new Library()
@@ -121,6 +121,16 @@ export function App() {
   const audioRef = useRef(audio)
   audioRef.current = audio
   const [inputs, setInputs] = useState<{ id: string; label: string }[]>([])
+  /** Livestream feed for vMix / OBS: on or off (saved), and its address once the server is up. */
+  const [feedOn, setFeedOnSaved] = useSaved<boolean>('sf-feed', false)
+  const [streamUrl, setStreamUrl] = useState<string>()
+  useEffect(() => {
+    setFeedOn(feedOn)
+    if (!feedOn || !isDesktop) { setStreamUrl(undefined); return }
+    void import('@tauri-apps/api/core').then(({ invoke }) => invoke<string>('feed_start'))
+      .then((u) => { setStreamUrl(u); send({ type: 'style', style: screenStyleRef.current }) })
+      .catch((e) => { trace('feed failed: ' + String(e)); setFeedOnSaved(false); setMsg(/busy/.test(String(e)) ? 'The livestream feed could not start: another program is using port 5555' : 'The livestream feed could not start') })
+  }, [feedOn])
   const auto = mode === 'autopilot'
   const [held, setHeld] = useState(false)
   const [aiOk, setAiOk] = useState(false)
@@ -144,7 +154,7 @@ export function App() {
   const recordingRef = useRef(recording)
   recordingRef.current = recording
   const [conflict, setConflict] = useState<{ combo: string; target: [ActionId, number]; owner: ActionId } | null>(null)
-  const [settingsTab, setSettingsTab] = useState<'appearance' | 'projector' | 'operator' | 'audio' | 'ai' | 'keyboard'>('appearance')
+  const [settingsTab, setSettingsTab] = useState<'appearance' | 'projector' | 'stream' | 'operator' | 'audio' | 'ai' | 'keyboard'>('appearance')
   const [lines, setLines] = useState<Line[]>([])
   const [hits, setHits] = useState<Hit[]>([])
   const [status, setStatus] = useState('Loading scripture…')
@@ -160,6 +170,8 @@ export function App() {
   useEffect(() => { void loadThemes().then(setThemes) }, [])
   const look = style.lookId ? themes.find((t) => t.id === style.lookId) : undefined
   const screenStyle: OutputStyle = { ...style, look }
+  const screenStyleRef = useRef(screenStyle)
+  screenStyleRef.current = screenStyle
   const [versions, setVersions] = useState<string[]>(['KJV'])
   const [msg, setMsg] = useState('')
   const [msgLeaving, setMsgLeaving] = useState(false)
@@ -256,6 +268,27 @@ export function App() {
   makeTrackerRef.current = makeTracker
   useEffect(() => { if (trackerRef.current) trackerRef.current.readAhead = audio.readAhead }, [audio.readAhead])
 
+  const [autoGain, setAutoGain] = useState<string>()
+  /**
+   * Auto gain: listen while someone speaks normally, then set the gain so speech sits in the middle of the meter
+   * (the meter shows eight times the level, so the middle is a level of about 0.06).
+   */
+  async function runAutoGain() {
+    if (!listening) await toggleListen()
+    const l = listenerRef.current
+    if (!l) return
+    const measuring = l.measure(7600)
+    for (let s = 8; s > 0; s--) { setAutoGain(`Speak… ${s}`); await new Promise((r) => setTimeout(r, 1000)) }
+    const measured = await measuring
+    if (!measured) { setAutoGain(undefined); setMsg('Nobody spoke, so the gain was not changed. Try again while someone talks'); return }
+    const db = Math.round(Math.max(0, Math.min(30, l.currentGainDb + 20 * Math.log10(0.06 / measured))))
+    l.setGain(db)
+    setAudio({ ...audioRef.current, gainDb: db })
+    trace(`auto gain: speech at ${measured.toFixed(4)}, gain now +${db} dB`)
+    setAutoGain(undefined)
+    setMsg(db === 30 ? 'Gain set to the maximum, +30 dB. The feed is very quiet: check the cable or the sound card level' : `Gain set to +${db} dB`)
+  }
+
   /** A new input takes effect at once: while listening, the old one is closed and the new one opened. */
   async function switchInput(device: string | undefined) {
     setAudio({ ...audioRef.current, device })
@@ -307,15 +340,15 @@ export function App() {
   // Push to the projector whenever the verse changes and we're live.
   useEffect(() => {
     if (frozen) return
-    bus.postMessage({ type: 'slide', slide: live ? slideFor(passage, version) : { reference: '', version, html: '', blank: true } } satisfies BusMessage)
+    send({ type: 'slide', slide: live ? slideFor(passage, version) : { reference: '', version, html: '', blank: true } } satisfies BusMessage)
   }, [passage, live, version, slideFor, frozen])
   useEffect(() => { setFrozenSlide(frozen ? (live ? slideFor(passageRef.current, versionRef.current) : { reference: '', version: '', html: '', blank: true }) : undefined) }, [frozen])
-  useEffect(() => { bus.postMessage({ type: 'style', style: screenStyle } satisfies BusMessage) }, [style, look])
+  useEffect(() => { send({ type: 'style', style: screenStyle } satisfies BusMessage) }, [style, look])
   useEffect(() => {
     bus.onmessage = (e: MessageEvent<BusMessage>) => {
       if (e.data.type !== 'hello') return
-      bus.postMessage({ type: 'style', style: screenStyle } satisfies BusMessage)
-      bus.postMessage({ type: 'slide', slide: liveRef.current ? slideFor(passageRef.current, versionRef.current) : { reference: '', version: versionRef.current, html: '', blank: true } } satisfies BusMessage)
+      send({ type: 'style', style: screenStyle } satisfies BusMessage)
+      send({ type: 'slide', slide: liveRef.current ? slideFor(passageRef.current, versionRef.current) : { reference: '', version: versionRef.current, html: '', blank: true } } satisfies BusMessage)
     }
   })
 
@@ -1313,7 +1346,7 @@ export function App() {
       {tab === 'settings' && (
         <div className="settings-page">
           <nav className="settings-nav">
-            {([['appearance', 'Appearance', 'Light or dark mode'], ['projector', 'Projector', 'What the congregation sees'], ['operator', 'Workspace', 'How the panels move'], ['audio', 'Audio', 'Input, gain and levels'], ['ai', 'AI & Listening', 'Autopilot, speech and suggestions'], ['keyboard', 'Keyboard', 'Shortcuts']] as const).map(([k, label, hint]) => (
+            {([['appearance', 'Appearance', 'Light or dark mode'], ['projector', 'Projector', 'What the congregation sees'], ['stream', 'Livestream', 'vMix, OBS and NDI'], ['operator', 'Workspace', 'How the panels move'], ['audio', 'Audio', 'Input, gain and levels'], ['ai', 'AI & Listening', 'Autopilot, speech and suggestions'], ['keyboard', 'Keyboard', 'Shortcuts']] as const).map(([k, label, hint]) => (
               <button key={k} className={settingsTab === k ? 'on' : ''} onClick={() => setSettingsTab(k)}><b>{label}</b><span>{hint}</span></button>
             ))}
           </nav>
@@ -1407,6 +1440,23 @@ export function App() {
               </div>
             )}
 
+            {settingsTab === 'stream' && (
+              <div className="settings-col">
+                  <div className="group-label first">Feed</div>
+                  <div className="setrow"><span>Feed for vMix and OBS<small>The scripture, live, for the livestream computer on the same network. In vMix: Add Input, Web Browser. In OBS: Browser Source. No cable or capture card needed.</small></span>
+                    <div className="seg"><button className={!feedOn ? 'on' : ''} onClick={() => setFeedOnSaved(false)}>Off</button><button className={feedOn ? 'on' : ''} onClick={() => setFeedOnSaved(true)}>On</button></div></div>
+                  {feedOn && streamUrl && (
+                    <div className="setrow feed-urls"><span>Address<small>Over video, add ?transparent so only the words and their band show. Allow Lampstand through the Windows firewall if it asks.</small></span>
+                      <div className="feed-links">
+                        {[streamUrl, streamUrl + '?transparent'].map((u) => (
+                          <button key={u} className="feed-link" title="Copy" onClick={() => { void navigator.clipboard.writeText(u); setMsg('Address copied') }}><code>{u}</code><span>Copy</span></button>
+                        ))}
+                      </div></div>
+                  )}
+                <p className="muted small-note">The feed shows exactly what the projector shows, with its theme, and blanks when the projector blanks. It works on the local network only. Nothing goes to the internet.</p>
+              </div>
+            )}
+
             {settingsTab === 'audio' && (
               <div className="settings-col">
                 <div className="group-label first">Input</div>
@@ -1414,7 +1464,8 @@ export function App() {
                   <Select value={audio.device ?? ''} onOpen={() => void listInputs()} onChange={(v) => void switchInput(v || undefined)}
                     options={[{ value: '', label: 'Windows default' }, ...inputs.map((d) => ({ value: d.id, label: d.label }))]} /></div>
                 <div className="setrow"><span>Gain<small>Lifts a quiet feed for Lampstand only. The sound card and the livestream are not touched. Aim for the meter to reach the middle when someone speaks.</small></span>
-                  <div className="gain-ctl"><Slider min={0} max={30} step={1} value={audio.gainDb} onChange={(v) => { setAudio({ ...audio, gainDb: v }); listenerRef.current?.setGain(v) }} /><span className="status-text">+{audio.gainDb} dB</span></div></div>
+                  <div className="gain-ctl"><Slider min={0} max={30} step={1} value={audio.gainDb} onChange={(v) => { setAudio({ ...audio, gainDb: v }); listenerRef.current?.setGain(v) }} /><span className="status-text gain-db">+{audio.gainDb} dB</span>
+                    <button className={'mini-btn' + (autoGain ? ' on' : '')} disabled={!!autoGain} onClick={() => void runAutoGain()} title="Speak normally for a few seconds and Lampstand sets the gain">{autoGain ?? 'Auto'}</button></div></div>
                 <div className="setrow"><span>Level<small>{listening ? (level > 0.95 ? 'Too loud: lower the gain' : level < 0.05 ? 'Very quiet: raise the gain, or check the cable' : 'Good') : 'Press Listen to see the level'}</small></span>
                   <LevelMeter level={level} className="level-bar" /></div>
               </div>

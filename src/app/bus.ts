@@ -36,3 +36,20 @@ export type BusMessage =
   | { type: 'hello' }
 
 export const bus = new BroadcastChannel('lampstand')
+
+/** The livestream feed (vMix, OBS): when on, every slide and style also goes to the feed server in the app. */
+const feed = { on: false, slide: undefined as Slide | undefined, style: undefined as OutputStyle | undefined }
+export function setFeedOn(on: boolean) { feed.on = on; forward() }
+function forward() {
+  if (!feed.on || !feed.slide || !feed.style) return
+  const json = JSON.stringify({ slide: feed.slide, style: feed.style })
+  void import('@tauri-apps/api/core').then(({ invoke }) => invoke('feed_push', { json })).catch(() => {})
+}
+
+/** Sends to the projector window, and to the livestream feed when it is on. */
+export function send(msg: BusMessage) {
+  bus.postMessage(msg)
+  if (msg.type === 'slide') feed.slide = msg.slide
+  if (msg.type === 'style') feed.style = msg.style
+  if (msg.type !== 'hello') forward()
+}

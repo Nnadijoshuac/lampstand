@@ -1,5 +1,6 @@
 mod bark;
 mod displays;
+mod feed;
 mod llm;
 mod update;
 
@@ -115,6 +116,18 @@ fn models_progress() -> u64 {
     update::progress()
 }
 
+/// Turns on the livestream feed and returns its address for vMix or OBS.
+#[tauri::command]
+fn feed_start(app: tauri::AppHandle, feed: tauri::State<feed::FeedState>) -> Result<String, String> {
+    feed.inner().start(&app)
+}
+
+/// The main window's latest slide and style, sent to every page watching the feed.
+#[tauri::command]
+fn feed_push(feed: tauri::State<feed::FeedState>, json: String) {
+    feed.push(json);
+}
+
 #[tauri::command]
 fn debug_feed() -> Option<String> {
     std::env::var("SF_FEED").ok().filter(|s| !s.is_empty())
@@ -175,12 +188,13 @@ pub fn run() {
     tauri::Builder::default()
         .manage(Stt(Mutex::new(Engine::Loading)))
         .manage(Ai(Mutex::new(None)))
+        .manage(feed::shared())
         .setup(|app| {
             displays::watch(app.handle());
             start_engines(app.handle());
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![stt_status, stt_transcribe, ai_port, log_line, debug_feed, open_site, install_update, download_models, models_progress])
+        .invoke_handler(tauri::generate_handler![stt_status, stt_transcribe, ai_port, log_line, debug_feed, open_site, install_update, download_models, models_progress, feed_start, feed_push])
         .build(tauri::generate_context!())
         .expect("error while building Lampstand")
         .run(|app, event| {

@@ -637,3 +637,14 @@ input:focus, select:focus, button:focus { outline: none; }
 .sel-list button:hover { background: color-mix(in srgb, var(--fg) 8%, transparent); }
 .sel-list button.on { font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .sel-list { animation: none; } }
+
+/* Livestream feed */
+.feed-links { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.feed-link { display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 12px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--fg) 4%, transparent); color: var(--fg); }
+.feed-link code { font-size: 12px; font-family: ui-monospace, Consolas, monospace; }
+.feed-link span { font-size: 11px; color: var(--muted); padding: 2px 8px; border-radius: 5px; background: color-mix(in srgb, var(--fg) 8%, transparent); }
+.feed-link:hover span { color: var(--fg); }
+/* the feed page over video: only the words and their band */
+.output.clear, .output.clear .slide { background: transparent !important; }
+.output.clear .th-bg, .output.clear .th-frame { display: none; }
+html:has(.output.clear), body:has(.output.clear) { background: transparent !important; }

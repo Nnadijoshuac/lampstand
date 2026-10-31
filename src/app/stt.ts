@@ -46,6 +46,24 @@ export class Listener {
    * Input gain in dB (0 to 30), applied before anything else. A feed shared with a livestream is often set low for
    * them; this lifts it for Lampstand alone, without touching the sound card. A limiter after it stops clipping.
    */
+  /** Speech loudness while measuring: frame levels above the room's noise, collected for `measure`. */
+  private sampling?: number[]
+
+  /**
+   * Listens for `ms` and returns how loud speech was (the 90th percentile of the frames that rose above the room
+   * noise), after the current gain. 0 when nobody spoke. Auto gain sets the gain from it.
+   */
+  async measure(ms: number): Promise<number> {
+    this.sampling = []
+    await new Promise((r) => setTimeout(r, ms))
+    const got = this.sampling.sort((a, b) => a - b)
+    this.sampling = undefined
+    if (got.length < 20) return 0
+    return got[Math.floor(got.length * 0.9)]
+  }
+
+  get currentGainDb(): number { return this.gainDb }
+
   setGain(db: number): void {
     this.gainDb = Math.max(0, Math.min(30, db))
     if (this.gain) this.gain.gain.value = 10 ** (this.gainDb / 20)
@@ -121,6 +139,7 @@ export class Listener {
     const sorted = [...this.recentRms].sort((a, b) => a - b)
     this.floor = sorted[Math.floor(sorted.length * 0.1)] ?? rms
     const loud = rms > Math.max(0.004, this.floor * 2.8)
+    if (loud) this.sampling?.push(rms)
 
     if (!this.inSpeech) {
       this.preRoll.push(f)

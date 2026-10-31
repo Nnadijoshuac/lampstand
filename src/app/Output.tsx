@@ -240,13 +240,23 @@ export function Output() {
   const [slide, setSlide] = useState<Slide>({ reference: '', version: '', html: '', blank: true })
   const [style, setStyle] = useState<OutputStyle>(DEFAULT_STYLE)
 
+  const params = new URLSearchParams(location.search)
+  // Livestream feed (vMix, OBS): updates come from the app's feed server instead of the window next door
+  const feedMode = params.has('feed')
+  const clear = params.has('transparent')
+
   useEffect(() => {
+    if (feedMode) {
+      const es = new EventSource('/events')
+      es.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.slide) setSlide(m.slide); if (m.style) setStyle(m.style) } catch { /* a partial message: the next one is whole */ } }
+      return () => es.close()
+    }
     bus.onmessage = (e: MessageEvent<BusMessage>) => {
       if (e.data.type === 'slide') setSlide(e.data.slide)
       if (e.data.type === 'style') setStyle(e.data.style)
     }
     bus.postMessage({ type: 'hello' } satisfies BusMessage)
-  }, [])
+  }, [feedMode])
 
-  return <div className="output"><ScreenFrame fit={style.fit ?? 'fill'}><SlideView slide={slide} style={style} unit="cqmin" /></ScreenFrame></div>
+  return <div className={'output' + (clear ? ' clear' : '')}><ScreenFrame fit={style.fit ?? 'fill'}><SlideView slide={slide} style={style} unit="cqmin" /></ScreenFrame></div>
 }
