@@ -154,6 +154,9 @@ export function App() {
   const recordingRef = useRef(recording)
   recordingRef.current = recording
   const [conflict, setConflict] = useState<{ combo: string; target: [ActionId, number]; owner: ActionId } | null>(null)
+  /** The installed version, shown at the foot of the Settings sidebar so anyone asking for help can quote it. */
+  const [appVersion, setAppVersion] = useState('')
+  useEffect(() => { if (isDesktop) void import('@tauri-apps/api/app').then((a) => a.getVersion()).then(setAppVersion).catch(() => {}) }, [])
   const [settingsTab, setSettingsTab] = useState<'appearance' | 'projector' | 'stream' | 'operator' | 'audio' | 'ai' | 'keyboard'>('appearance')
   const [lines, setLines] = useState<Line[]>([])
   const [hits, setHits] = useState<Hit[]>([])
@@ -1367,6 +1370,7 @@ export function App() {
             {([['appearance', 'Appearance', 'Light or dark mode'], ['projector', 'Projector', 'What the congregation sees'], ['stream', 'Livestream', 'vMix, OBS and NDI'], ['operator', 'Workspace', 'How the panels move'], ['audio', 'Audio', 'Input, gain and levels'], ['ai', 'AI & Listening', 'Autopilot, speech and suggestions'], ['keyboard', 'Keyboard', 'Shortcuts']] as const).map(([k, label, hint]) => (
               <button key={k} className={settingsTab === k ? 'on' : ''} onClick={() => setSettingsTab(k)}><b>{label}</b><span>{hint}</span></button>
             ))}
+            {appVersion && <div className="app-version" title="Quote this when asking for help">Lampstand {appVersion}</div>}
           </nav>
 
           <div className="settings-body">

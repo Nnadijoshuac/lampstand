@@ -652,3 +652,4 @@ html:has(.output.clear), body:has(.output.clear) { background: transparent !impo
 .models-bar .mini-btn { padding: 4px 12px; font-size: 12px; border-radius: 6px; }
 .models-bar .mini-btn.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 600; }
 .mini-btn.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 600; }
+.settings-nav .app-version { margin-top: auto; padding: 16px 12px 4px; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; user-select: text; }
