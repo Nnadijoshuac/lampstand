@@ -448,10 +448,12 @@ export function App() {
     // The AI's recalled verses, kept only when they share the key words of what was said.
     const fromAi: (Hit & { overlap: number })[] = []
     for (const r of recalled) {
-      const ref = findReferences(r, true)[0]
-      if (!ref?.start) continue
+      const ref = findReferences(r.replace(/[^\w\s:,-]/g, ' '), true)[0] // "Proverbs 15:1}" -> Proverbs 15:1
+      if (!ref) continue
+      // A whole chapter ("Psalm 23") is searched verse by verse; the word check below keeps only the one being quoted
+      const start = ref.start ?? 1, end = ref.start ? (ref.end ?? ref.start) : 200
       // A few verses either side: the AI often names the right passage but slightly the wrong verses ("19:1-3" for 19:4).
-      for (let v = Math.max(1, ref.start - 2); v <= Math.min((ref.end ?? ref.start) + 3, ref.start + 60); v++) {
+      for (let v = Math.max(1, start - 2); v <= Math.min(end + 3, start + 200); v++) {
         const h = { book: ref.book, chapter: ref.chapter, verse: v, score: 0 }
         const t = verseText(h)
         if (!t || fromAi.some((x) => same(x, h))) continue
