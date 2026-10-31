@@ -78,7 +78,7 @@ export class VerseSearch {
       this.onStatus('')
       trace('search: meaning ready')
     } catch (err) {
-      this.onStatus('Meaning search unavailable: ' + (err as Error).message)
+      trace('meaning search failed: ' + String(err)); this.onStatus('Search by meaning is off. Word search still works')
       console.error(err)
       trace('search: meaning failed ' + (err as Error).message)
     }

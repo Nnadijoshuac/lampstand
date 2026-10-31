@@ -1,3 +1,4 @@
+import { PlainError } from './plainError'
 /**
  * Bible Show versions ship as small Windows installers (NSIS) that wrap one Bible database.
  * This reads the installer as plain data (nothing is executed) and returns the database bytes.
@@ -19,7 +20,7 @@ export async function extractBibFromInstaller(exe: Uint8Array): Promise<Uint8Arr
   for (let i = 0; i + MAGIC.length < exe.length; i++) {
     if (exe[i] === MAGIC[0] && startsWith(exe, MAGIC, i)) { at = i - 4; break }
   }
-  if (at < 0) throw new Error('This is not a Bible Show version file')
+  if (at < 0) throw new PlainError('This is not a Bible Show version file')
   const view = new DataView(exe.buffer, exe.byteOffset, exe.byteLength)
   let p = at + 28
   while (p + 4 <= exe.length) {
@@ -34,5 +35,5 @@ export async function extractBibFromInstaller(exe: Uint8Array): Promise<Uint8Arr
       if (isJetDb(raw)) return raw
     } catch { /* not every block is deflate (e.g. LZMA installers) */ }
   }
-  throw new Error('No Bible found inside this file')
+  throw new PlainError('No Bible found inside this file')
 }

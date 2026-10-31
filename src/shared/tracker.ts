@@ -29,6 +29,13 @@ const END_ZONE = 1
 
 const words = (s: string) => normalize(s).split(' ').filter(Boolean)
 
+/** Rough English syllable count: vowel groups, less a silent final e. "God" 1, "beginning" 3, "spake" 1. */
+export function syllables(w: string): number {
+  if (/^\d+$/.test(w)) return w.length // a number in the text is read as words; one per digit is close enough
+  const groups = w.replace(/e$/, '').match(/[aeiouy]+/g)
+  return Math.max(1, groups?.length ?? 0)
+}
+
 /** Spoken and printed words match when equal, or close enough to absorb recognition slips and translation spelling. */
 function same(a: string, b: string): boolean {
   if (a === b) return true
@@ -70,6 +77,8 @@ export function findIntent(text: string): Intent | undefined {
   // "1" here is the spoken "one" in "the next one" / "the one before".
   if (/\b(next verse|the next 1|next 1|move on|following verse|keep going|carry on|continue reading)\b/.test(t)) return { kind: 'next' }
   if (/\b(previous verse|verse before|the 1 before|1 before|go back a verse|back 1 verse|go back 1|back a verse)\b/.test(t)) return { kind: 'previous' }
+  // "No, go back.", "Go back please": a short "go back" with nothing after it is the verse before
+  if (n <= 5 && /^((no|okay|ok|um|uh|sorry|wait|oh) )*(go back|back up|come back)( (please|a bit|small))?$/.test(t)) return { kind: 'previous' }
   // "go to the next chapter, verse four", "verse four of the next chapter", "the previous chapter"
   const step = t.match(/\b(next|following|previous|last) chapter\b/)
   if (step) {
@@ -99,6 +108,14 @@ export class VerseTracker {
   passage?: Passage
   /** When false, spoken references and commands still work but the tracker no longer follows the reading. */
   autoFollow = true
+  /**
+   * Read-ahead, in syllables (0 = off). Readers see the end of a verse before they say it, so the next verse goes up
+   * when this many syllables or fewer are left: "…and the Word was God" moves on at "Word". If they then stop to
+   * explain instead of reading on, the screen comes back to the verse they are explaining.
+   */
+  readAhead = 0
+  /** Set when the screen moved on with read-ahead on: the verse it left, and the one it showed. */
+  private ahead?: { from: number; to: number }
   /** Recent words from finished sentences. */
   private heard: string[] = []
   /** Words of the sentence still being spoken (replaced on every interim result). */
@@ -176,8 +193,32 @@ export class VerseTracker {
     const v = findVerseOnly(text)
     if (v && words(text).length <= 10) { this.apply({ kind: 'verse', verse: v.start, end: v.end }); return }
 
+    if (this.leftEarlyForNothing(text)) return
     this.heard = [...this.heard, ...words(text)].slice(-SPOKEN_WINDOW * 2)
     this.follow()
+  }
+
+  /**
+   * The screen moved early, and this sentence is talk rather than reading: none of it is in the verse now showing,
+   * and most of it is not the end of the verse it left. They stopped to explain, so show that verse again.
+   */
+  private leftEarlyForNothing(text: string): boolean {
+    const a = this.ahead, p = this.passage
+    if (!a || !p || p.current !== a.to) { this.ahead = undefined; return false }
+    const said = words(text).filter((w) => !STOP.has(w))
+    if (said.length < 3) return false
+    const inVerse = (v: number) => words(this.bible.verseText(p.book, p.chapter, v) ?? '')
+    const next = inVerse(a.to), left = inVerse(a.from)
+    const inLeft = (w: string) => left.some((x) => same(w, x))
+    // reading on: words of the new verse that are not also in the one it left ("let" is in both James 1:4 and 1:5)
+    // (words of four letters or more: "let" in "let me ask you" is not reading "But let patience…")
+    if (said.some((w) => w.length >= 4 && !inLeft(w) && next.some((x) => same(w, x)))) { this.ahead = undefined; return false }
+    const talk = said.filter((w) => !inLeft(w)).length
+    if (talk < 3) return false // still finishing the verse it left
+    this.ahead = undefined
+    this.heard = []; this.partial = []
+    this.set({ ...p, current: a.from })
+    return true
   }
 
   /** The sentence being spoken right now, re-sent as it grows. Lets the screen move mid-sentence. */
@@ -261,10 +302,13 @@ export class VerseTracker {
     const spoken = [...this.heard, ...this.partial].slice(-SPOKEN_WINDOW)
     if (spoken.length < 3) return
 
-    const text: { w: string; verse: number; fromEnd: number }[] = []
+    // sylLeft: syllables after this word before the verse ends
+    const text: { w: string; verse: number; fromEnd: number; sylLeft: number }[] = []
     for (let v = lo; v <= Math.min(total, p.current + 3); v++) {
       const vw = words(this.bible.verseText(p.book, p.chapter, v) ?? '')
-      vw.forEach((w, i) => text.push({ w, verse: v, fromEnd: vw.length - 1 - i }))
+      let syl = 0
+      const tail = vw.map((w) => w).reverse().map((w) => { const left = syl; syl += syllables(w); return left }).reverse()
+      vw.forEach((w, i) => text.push({ w, verse: v, fromEnd: vw.length - 1 - i, sylLeft: tail[i] }))
     }
     if (!text.length) return
 
@@ -285,11 +329,14 @@ export class VerseTracker {
 
     const at = text[bestJ - 1]
     let target = at.verse
-    if (at.fromEnd < END_ZONE && target < hi) target++ // finished this verse: show the next one now
+    const early = this.readAhead > 0 && at.fromEnd >= END_ZONE && at.sylLeft <= this.readAhead
+    if ((at.fromEnd < END_ZONE || early) && target < hi) target++ // finished this verse (or nearly): show the next one now
     if (target === p.current) return
     if (target < p.current && best < MIN_EVIDENCE + 3) return // only go back on strong evidence
     if (target > hi && best < MIN_EVIDENCE + 2) return // reading on past the range: be sure first
     this.heard = this.heard.slice(-2); this.partial = []
+    // With read-ahead on, any move on to the next verse can come back: commentary straight after a verse is about it
+    this.ahead = this.readAhead > 0 && target === at.verse + 1 ? { from: at.verse, to: target } : undefined
     this.set({ ...p, current: target, last: Math.max(p.last, target) })
   }
 

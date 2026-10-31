@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
+import { shown } from '@shared/plainError'
 import 'react-grid-layout/css/styles.css'
 import { BOOKS } from '@shared/books'
 import { findReferences, normalize } from '@shared/reference'
@@ -13,7 +14,7 @@ import { BarkEngine, Listener, isDesktop, trace, type SttEngine } from './stt'
 import { linked, related, xrefsReady } from './xref'
 import { CUE, aiReady, recall, rerank, route, type Action } from './ai'
 import { DEFAULT_STYLE, ScreenFrame, SlideView, themeScale } from './Output'
-import { Slider, SpringPill, WindowControls, glideIndicators } from './controls'
+import { LevelMeter, Select, Slider, SpringPill, WindowControls, glideIndicators } from './controls'
 import { closeProjector, openProjector } from './projector'
 import { importBibleShowFolder, loadThemes, saveThemes } from './themes'
 import type { SlideTheme } from '@shared/bsTheme'
@@ -25,6 +26,10 @@ import { SITE, useUpdates } from './update'
 const lib = new Library()
 /** Where the free translations live (the Lampstand website). */
 const CATALOG = SITE + 'bibles/'
+const PHANTOM_FILLER = new Set(['okay', 'ok', 'yeah', 'yes', 'no', 'um', 'uh', 'umm', 'hmm', 'mm', 'mhm', 'so', 'right', 'alright', 'oh', 'ah', 'eh', 'huh'])
+/** Words of instructions that are not in the KJV ("blank", "previous", "freeze"), so a short instruction is never dropped. */
+const COMMAND_WORDS = new Set(['next', 'previous', 'verse', 'chapter', 'blank', 'freeze', 'clear', 'show', 'kjv', 'nkjv', 'niv', 'nlt', 'amp', 'erv', 'esv', 'msg', 'tpt', 'okay'])
+const FILLER_WORDS = new Set(['the', 'and', 'that', 'was', 'with', 'for', 'his', 'him', 'are', 'but', 'not', 'this', 'unto', 'from', 'which', 'they', 'them', 'shall', 'have', 'hath'])
 const engine: SttEngine = new BarkEngine()
 const Grid = WidthProvider(Responsive)
 let engineReady: Promise<string> | undefined
@@ -111,6 +116,11 @@ export function App() {
   const [passage, setPassage] = useState<Passage>()
   const [live, setLive] = useState(true) // the screen opens on Genesis 1:1, not blank
   const [mode, setMode] = useSaved<'autopilot' | 'assist'>('sf-mode', 'autopilot')
+  /** Input: which microphone or sound-card input, how much to lift it (dB), and read-ahead in syllables (0 = off). */
+  const [audio, setAudio] = useSaved<{ device?: string; gainDb: number; readAhead: number }>('sf-audio', { gainDb: 0, readAhead: 0 })
+  const audioRef = useRef(audio)
+  audioRef.current = audio
+  const [inputs, setInputs] = useState<{ id: string; label: string }[]>([])
   const auto = mode === 'autopilot'
   const [held, setHeld] = useState(false)
   const [aiOk, setAiOk] = useState(false)
@@ -134,7 +144,7 @@ export function App() {
   const recordingRef = useRef(recording)
   recordingRef.current = recording
   const [conflict, setConflict] = useState<{ combo: string; target: [ActionId, number]; owner: ActionId } | null>(null)
-  const [settingsTab, setSettingsTab] = useState<'appearance' | 'projector' | 'operator' | 'ai' | 'keyboard'>('appearance')
+  const [settingsTab, setSettingsTab] = useState<'appearance' | 'projector' | 'operator' | 'audio' | 'ai' | 'keyboard'>('appearance')
   const [lines, setLines] = useState<Line[]>([])
   const [hits, setHits] = useState<Hit[]>([])
   const [status, setStatus] = useState('Loading scripture…')
@@ -210,6 +220,7 @@ export function App() {
   /** Chapters the preacher has named in this service, newest first: the sermon's own passages. */
   const namedChapters = useRef<{ book: number; chapter: number }[]>([])
   const listenerRef = useRef<Listener>()
+  const vocab = useRef<Set<string>>()
   useEffect(() => { void aiReady().then(setAiOk) }, [])
   const heldRef = useRef(false)
   const liveRef = useRef(live), autoRef = useRef(auto), versionRef = useRef(version), passageRef = useRef<Passage>()
@@ -231,6 +242,7 @@ export function App() {
     })
     trackerRef.current = t
     t.autoFollow = autoRef.current && !heldRef.current
+    t.readAhead = audioRef.current.readAhead
     // "Go back to the previous scripture": the latest History entry from a different passage.
     t.onIntent = () => {
       const p = t.passage
@@ -242,6 +254,26 @@ export function App() {
   }, [])
   const makeTrackerRef = useRef(makeTracker)
   makeTrackerRef.current = makeTracker
+  useEffect(() => { if (trackerRef.current) trackerRef.current.readAhead = audio.readAhead }, [audio.readAhead])
+
+  /** A new input takes effect at once: while listening, the old one is closed and the new one opened. */
+  async function switchInput(device: string | undefined) {
+    setAudio({ ...audioRef.current, device })
+    audioRef.current = { ...audioRef.current, device }
+    const l = listenerRef.current
+    if (!listening || !l) return
+    l.stop()
+    try { await l.start(device) } catch (e) { trace('switch input failed: ' + String(e)); setMsg('That input could not be opened. Back to Windows default'); await l.start(undefined).catch(() => {}) }
+  }
+
+  /** Audio inputs by name. Names only appear once the microphone has been allowed, which Listen does. */
+  async function listInputs() {
+    try {
+      const all = await navigator.mediaDevices.enumerateDevices()
+      setInputs(all.filter((d) => d.kind === 'audioinput' && d.deviceId !== 'default' && d.deviceId !== 'communications')
+        .map((d) => ({ id: d.deviceId, label: d.label || 'Audio input' })))
+    } catch { setInputs([]) }
+  }
 
   useEffect(() => {
     (async () => {
@@ -260,9 +292,9 @@ export function App() {
       }, 1500)
       s.build()
       setReady(true)
-      void loadEngine().catch((e) => { engineReady = undefined; setStatus('Speech model failed: ' + e.message) })
+      void loadEngine().catch((e) => { engineReady = undefined; trace('speech model failed: ' + String(e)); setStatus(shown(e, 'The speech model could not start. Restart Lampstand, and if it keeps happening, reinstall it')) })
       setStatus('Ready')
-    })().catch((e) => setStatus('Could not load scripture: ' + e))
+    })().catch((e) => { trace('scripture load failed: ' + String(e)); setStatus('Scripture could not load. Restart Lampstand') })
   }, [makeTracker])
 
   const slideFor = useCallback((p: Passage | undefined, v: string): Slide => {
@@ -440,6 +472,7 @@ export function App() {
   const lastInterim = useRef('')
   const lastInterimRef = useRef('')
   const onSpeech = useCallback(async (text: string) => {
+    if (isPhantom(text)) { trace('ignored (nothing was said): ' + text); return }
     const seq = ++speechSeq.current
     setLines((l) => [...l.slice(-300), { text, at: Date.now() }])
 
@@ -543,7 +576,10 @@ export function App() {
     // Reading on in the open chapter: 1 John 4 is up and they read "he that loveth not, knoweth not God" (verse 8).
     if (p && !t.placeholder) {
       const near = q.inChapter(joined, p.book, p.chapter)
-      if (near && Math.abs(near.verse - p.current) >= 2) {
+      // "…was the light of men" is verse 4 being read, even though "every man" in verse 9 looks like it too
+      // and the verse just left counts too: with read-ahead the screen moves on before its last words are said
+      const here = Math.max(...[p.current - 1, p.current, p.current + 1].map((v) => fits(text, p.book, p.chapter, v)))
+      if (near && Math.abs(near.verse - p.current) >= 2 && here < 0.6) {
         trace(`reading ${refLabel(near)} further down the open chapter`)
         t.goto(near.verse)
         return true
@@ -574,6 +610,34 @@ export function App() {
       return true
     }
     return false
+  }
+
+  /**
+   * Words the recogniser invents in a quiet moment: an empty line, "Okay.", "um", or a short burst of non-words like
+   * "Kupak Gupak". Real speech has at least one word scripture knows, a number, or an instruction.
+   */
+  function isPhantom(text: string): boolean {
+    const w = normalize(text).split(' ').filter(Boolean)
+    if (!w.length) return true
+    if (w.every((x) => PHANTOM_FILLER.has(x))) return true
+    if (w.length > 3) return false
+    if (!vocab.current) {
+      const kjv = lib.modules.get('KJV')
+      if (!kjv) return false
+      vocab.current = new Set(kjv.verses.flatMap((v) => normalize(v.text).split(' ')))
+    }
+    return w.every((x) => !/^\d+$/.test(x) && !vocab.current!.has(x) && !PHANTOM_FILLER.has(x) && !COMMAND_WORDS.has(x))
+  }
+
+  /** Share of the sentence's meaningful words found in this verse (0 to 1), allowing small slips ("man" for "men"). */
+  function fits(text: string, book: number, chapter: number, verse: number): number {
+    const v = lib.verse(versionRef.current, book, chapter, verse) ?? lib.verse('KJV', book, chapter, verse)
+    if (!v) return 0
+    const said = normalize(text).split(' ').filter((w) => w.length >= 3 && !FILLER_WORDS.has(w))
+    if (said.length < 2) return 0
+    const inVerse = normalize(v.text).split(' ')
+    const close = (a: string, b: string) => a === b || (a.length === b.length && [...a].filter((c, i) => c !== b[i]).length <= 1) || (a.length >= 5 && b.startsWith(a.slice(0, 5)))
+    return said.filter((w) => inVerse.some((x) => close(w, x))).length / said.length
   }
 
   function openHit(h: Hit) {
@@ -629,12 +693,13 @@ export function App() {
           if (r && (!p || p.book !== r.book || p.chapter !== r.chapter || (r.start !== undefined && p.current !== r.start && p.first !== r.start))) { namedAt.current = Date.now(); resumeAutopilot(); pendingHistory.current = true; trackerRef.current?.open(r.book, r.chapter, r.start, r.end); setLive(true) }
         })
       }
-      await listenerRef.current.start(undefined, feedUrl)
+      listenerRef.current.setGain(audioRef.current.gainDb)
+      await listenerRef.current.start(audioRef.current.device, feedUrl)
       setListening(true)
       setStatus('Listening')
     } catch (e) {
       setModelPct(null)
-      setStatus('Microphone or speech model problem: ' + (e as Error).message)
+      trace('listen failed: ' + String(e)); setStatus(/NotAllowed|Permission/i.test(String(e)) ? 'Lampstand is not allowed to use the microphone. Allow it in Windows Settings, Privacy, Microphone' : /NotFound|Overconstrained/i.test(String(e)) ? 'The audio input is not connected. Check the cable, or pick another input in Settings, Audio' : shown(e, 'Listening could not start. Check the audio input in Settings, Audio'))
     }
   }
 
@@ -717,7 +782,7 @@ export function App() {
       const extra = [r.missing.length ? `${r.missing.length} background${r.missing.length > 1 ? 's' : ''} missing (${r.missing.slice(0, 2).join(', ')}${r.missing.length > 2 ? '…' : ''})` : '',
         r.bibles ? `${r.bibles} Bibles are in that folder: add the ones you use from the Bibles page` : ''].filter(Boolean).join('. ')
       setMsg(`Imported ${r.themes.length} Bible Show themes.${extra ? ' ' + extra + '.' : ''}`)
-    } catch (e) { setMsg('Could not import: ' + (e as Error).message) }
+    } catch (e) { trace('import failed: ' + String(e)); setMsg(shown(e, 'That could not be imported')) }
   }
 
   async function removeThemes() {
@@ -746,7 +811,7 @@ export function App() {
       const m = await lib.importFromCatalog(e, CATALOG)
       setVersions([...lib.modules.keys()])
       setMsg(`Added ${m.name}`)
-    } catch (err) { setMsg(`${e.name}: ${(err as Error).message}`) }
+    } catch (err) { trace(`catalog add ${e.short} failed: ${String(err)}`); setMsg(`${e.name}: ${shown(err, "it could not be added. Check the internet connection and try again")}`) }
     setFetching(undefined)
   }
   const [catalogQuery, setCatalogQuery] = useState('')
@@ -770,7 +835,7 @@ export function App() {
       try {
         const m = await lib.importFile(f)
         setMsg(`Added ${m.name}`)
-      } catch (e) { setMsg(`${f.name}: ${(e as Error).message}. `) }
+      } catch (e) { trace(`import ${f.name} failed: ${String(e)}`); setMsg(`${f.name}: ${shown(e, 'this file could not be read')}`) }
     }
     setVersions([...lib.modules.keys()])
   }
@@ -985,8 +1050,9 @@ export function App() {
           onClick={() => { if (held) resumeAutopilot(); else setMode(auto ? 'assist' : 'autopilot') }}
           title={auto ? (held ? 'You are driving. Click, or name a new passage, to hand back to Autopilot.' : 'Autopilot: follows the preacher by itself. Click for Assist.') : 'Assist: suggestions only. Click for Autopilot.'}
           icon={<span className="orb" />} label={auto ? (held ? 'You’re driving' : 'Autopilot') : 'Assist'} />
-        <button className={'btn ' + (listening ? 'on' : '')} onClick={toggleListen} disabled={!ready}>
-          <span className="meter"><i style={{ height: Math.round(level * 100) + '%' }} /></span>
+        <button className={'btn ' + (listening ? 'on' : '')} disabled={!ready} title="Ctrl + click: audio settings"
+          onClick={(e) => { if (e.ctrlKey || e.metaKey) { setTab('settings'); setSettingsTab('audio'); return } void toggleListen() }}>
+          <LevelMeter level={level} vertical className="meter" />
           {listening ? 'Listening' : 'Listen'}
         </button>
         <button className={'btn live ' + (live ? 'on' : '')} onClick={() => setLive(!live)}>{live ? 'Live' : 'Blank'}</button>
@@ -1095,7 +1161,7 @@ export function App() {
 
             <div key="suggest" style={pullStyle('suggest')}>
               <Widget title="Suggestions" className="fixed" right={<span className={'ai-tag' + (aiOk ? ' on' : '')}>{aiOk ? 'AI on' : 'AI starting'}</span>}>
-                {searchStatus && <div className={searchStatus.startsWith('Meaning search unavailable') ? 'error' : 'note'}>{searchStatus}</div>}
+                {searchStatus && <div className={searchStatus.startsWith('Search by meaning') ? 'error' : 'note'}>{searchStatus}</div>}
                 {hits.length === 0 && <div className="empty small">Describe a passage aloud and matches appear here. Press 1–5 to switch.</div>}
                 <div className="list">
                   {hits.map((h, i) => <button key={i} className={'hit' + (i === 0 ? ' best' : '')} onClick={() => openHit(h)}><b><kbd>{i + 1}</kbd>{refLabel(h)}</b><span>{verseOf(h)}</span></button>)}
@@ -1247,7 +1313,7 @@ export function App() {
       {tab === 'settings' && (
         <div className="settings-page">
           <nav className="settings-nav">
-            {([['appearance', 'Appearance', 'Light or dark mode'], ['projector', 'Projector', 'What the congregation sees'], ['operator', 'Workspace', 'How the panels move'], ['ai', 'AI & Listening', 'Autopilot, speech and suggestions'], ['keyboard', 'Keyboard', 'Shortcuts']] as const).map(([k, label, hint]) => (
+            {([['appearance', 'Appearance', 'Light or dark mode'], ['projector', 'Projector', 'What the congregation sees'], ['operator', 'Workspace', 'How the panels move'], ['audio', 'Audio', 'Input, gain and levels'], ['ai', 'AI & Listening', 'Autopilot, speech and suggestions'], ['keyboard', 'Keyboard', 'Shortcuts']] as const).map(([k, label, hint]) => (
               <button key={k} className={settingsTab === k ? 'on' : ''} onClick={() => setSettingsTab(k)}><b>{label}</b><span>{hint}</span></button>
             ))}
           </nav>
@@ -1341,11 +1407,27 @@ export function App() {
               </div>
             )}
 
+            {settingsTab === 'audio' && (
+              <div className="settings-col">
+                <div className="group-label first">Input</div>
+                <div className="setrow"><span>Listen to<small>The microphone, or the sound card that carries the pulpit mic. Switches straight away, even while listening.</small></span>
+                  <Select value={audio.device ?? ''} onOpen={() => void listInputs()} onChange={(v) => void switchInput(v || undefined)}
+                    options={[{ value: '', label: 'Windows default' }, ...inputs.map((d) => ({ value: d.id, label: d.label }))]} /></div>
+                <div className="setrow"><span>Gain<small>Lifts a quiet feed for Lampstand only. The sound card and the livestream are not touched. Aim for the meter to reach the middle when someone speaks.</small></span>
+                  <div className="gain-ctl"><Slider min={0} max={30} step={1} value={audio.gainDb} onChange={(v) => { setAudio({ ...audio, gainDb: v }); listenerRef.current?.setGain(v) }} /><span className="status-text">+{audio.gainDb} dB</span></div></div>
+                <div className="setrow"><span>Level<small>{listening ? (level > 0.95 ? 'Too loud: lower the gain' : level < 0.05 ? 'Very quiet: raise the gain, or check the cable' : 'Good') : 'Press Listen to see the level'}</small></span>
+                  <LevelMeter level={level} className="level-bar" /></div>
+              </div>
+            )}
+
             {settingsTab === 'ai' && (
               <div className="settings-col">
                 <div className="group-label first">Mode</div>
                 <div className="setrow"><span>AI mode<small>Autopilot opens, follows and switches by itself. Assist only suggests.</small></span>
                   <div className="seg"><button className={auto ? 'on' : ''} onClick={() => setMode('autopilot')}>Autopilot</button><button className={!auto ? 'on' : ''} onClick={() => setMode('assist')}>Assist</button></div></div>
+                <div className="group-label">Reading along</div>
+                <div className="setrow"><span>Read ahead<small>Readers see the end of a verse before they say it. Show the next verse this many syllables early. If they stop to explain, the verse they are explaining comes back.</small></span>
+                  <div className="seg">{[0, 3, 4, 5].map((n) => <button key={n} className={audio.readAhead === n ? 'on' : ''} onClick={() => setAudio({ ...audio, readAhead: n })}>{n ? n : 'Off'}</button>)}</div></div>
                 <div className="group-label">Status</div>
                 <div className="setrow"><span>Speech recognition<small>Underdog Bark 3.0 Plus, on this computer</small></span><span className="status-text">{isDesktop ? (/failed|problem/i.test(status) ? 'Problem' : 'Ready') : 'Desktop app only'}</span></div>
                 <div className="setrow"><span>Assistant<small>Qwen2.5 1.5B, on this computer</small></span><span className="status-text">{aiOk ? 'Ready' : 'Starting'}</span></div>

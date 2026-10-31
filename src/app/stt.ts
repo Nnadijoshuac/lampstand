@@ -39,6 +39,17 @@ export class Listener {
   private busy = false
   private lastInterim = 0
   private queue: Float32Array[] = []
+  private gain?: GainNode
+  private gainDb = 0
+
+  /**
+   * Input gain in dB (0 to 30), applied before anything else. A feed shared with a livestream is often set low for
+   * them; this lifts it for Lampstand alone, without touching the sound card. A limiter after it stops clipping.
+   */
+  setGain(db: number): void {
+    this.gainDb = Math.max(0, Math.min(30, db))
+    if (this.gain) this.gain.gain.value = 10 ** (this.gainDb / 20)
+  }
 
   constructor(private engine: SttEngine, private onText: (t: string) => void, private onLevel: (l: number) => void, private onInterim: (t: string) => void = () => {}) {}
 
@@ -60,8 +71,13 @@ export class Listener {
       })
       src = this.ctx.createMediaStreamSource(this.stream)
     }
+    // Lift a quiet feed first, then hold the peaks so the boost never distorts.
+    this.gain = this.ctx.createGain()
+    this.setGain(this.gainDb)
+    const limiter = this.ctx.createDynamicsCompressor()
+    limiter.threshold.value = -3; limiter.knee.value = 0; limiter.ratio.value = 20; limiter.attack.value = 0.002; limiter.release.value = 0.1
     // Clean the signal before recognition: cut rumble below speech, and notch out 50 Hz mains hum and its overtones.
-    const chain: AudioNode[] = [src]
+    const chain: AudioNode[] = [src, this.gain, limiter]
     const highpass = this.ctx.createBiquadFilter()
     highpass.type = 'highpass'; highpass.frequency.value = 85; highpass.Q.value = 0.7
     chain.push(highpass)

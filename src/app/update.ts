@@ -60,7 +60,7 @@ export function useUpdates() {
     if (update.full) { await invoke('open_site', { url: SITE + '#/download' }); return }
     setUpdating('…')
     try { await invoke('install_update', { url: update.exe.url, signature: update.exe.signature }) }
-    catch (e) { setUpdating(String(e)) }
+    catch (e) { trace('update failed: ' + String(e)); setUpdating(/signed/i.test(String(e)) ? 'The update was not signed by Lampstand, so it was not installed' : 'The update could not be installed. Try again later') }
   }, [update])
 
   /** Fetches the speech and AI models for a copy that came as the exe alone. Resumes where a stopped download left off. */
@@ -74,7 +74,7 @@ export function useUpdates() {
       await invoke('download_models', { url: m.url, signature: m.signature, size: m.size })
       setModels(undefined)
     } catch (e) {
-      setModels((s) => s && { ...s, busy: false, error: String(e) })
+      trace('models download failed: ' + String(e)); setModels((s) => s && { ...s, busy: false, error: /disk/i.test(String(e)) ? 'Not enough disk space to unpack the models' : 'The download stopped. Press Download again and it continues where it left off' })
     } finally { clearInterval(poll) }
   }, [check])
 

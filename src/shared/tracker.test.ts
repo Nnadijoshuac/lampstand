@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { VerseTracker, findIntent, type Passage } from './tracker'
+import { VerseTracker, findIntent, syllables, type Passage } from './tracker'
 
 const TEXT: Record<string, string> = {
   '42:3:16': 'For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.',
@@ -272,5 +272,96 @@ describe('sibling books', () => {
     say(t, 'first john chapter four')
     say(t, 'for John for eight')
     expect(t.passage).toMatchObject({ book: 61, chapter: 4, current: 8 })
+  })
+})
+
+describe('read-ahead', () => {
+  /** Interim results word by word: returns the verse on screen after each word, and whether it moved before the last few words. */
+  function speak(t: VerseTracker, sentence: string) {
+    const w = sentence.split(' '), at: number[] = []
+    for (let i = 1; i <= w.length; i++) { t.hear(w.slice(0, i).join(' ')); at.push(t.passage!.current) }
+    return at
+  }
+
+  it('counts syllables', () => {
+    expect(['God', 'beginning', 'patience', 'believeth', 'the'].map(syllables)).toEqual([1, 3, 2, 3, 1])
+  })
+
+  it('moves on three syllables before the end of the verse ("…wanting nothing")', () => {
+    const { t } = make()
+    t.readAhead = 3
+    say(t, 'James 1 verse 3 to 5')
+    t.feed('knowing this that the trying of your faith worketh patience')
+    expect(t.passage?.current).toBe(4)
+    const at = speak(t, 'But let patience have her perfect work that ye may be perfect and entire wanting nothing')
+    // "wanting nothing" is 4 syllables: with 3 it moves at "wanting" (2 left), before "nothing" is said
+    expect(at[at.length - 2]).toBe(5)
+  })
+
+  it('with read-ahead off, waits until the last word', () => {
+    const { t } = make()
+    say(t, 'James 1 verse 3 to 5')
+    t.feed('knowing this that the trying of your faith worketh patience')
+    const at = speak(t, 'But let patience have her perfect work that ye may be perfect and entire wanting nothing')
+    expect(at[at.length - 2]).toBe(4)
+    expect(at[at.length - 1]).toBe(5)
+  })
+
+  it('finishing the verse it left keeps the new verse up', () => {
+    const { t } = make()
+    t.readAhead = 5
+    say(t, 'James 1 verse 3 to 5')
+    t.feed('knowing this that the trying of your faith worketh patience')
+    say(t, 'But let patience have her perfect work that ye may be perfect and entire wanting nothing')
+    expect(t.passage?.current).toBe(5)
+  })
+
+  it('stopping to explain brings back the verse they are explaining', () => {
+    const { t } = make()
+    t.readAhead = 5
+    say(t, 'James 1 verse 3 to 5')
+    t.feed('knowing this that the trying of your faith worketh patience')
+    speak(t, 'But let patience have her perfect work that ye may be perfect and entire')
+    expect(t.passage?.current).toBe(5) // moved early: "wanting nothing" not said yet
+    t.feed('But let patience have her perfect work that ye may be perfect and entire')
+    t.feed('now church listen to me patience is something we practise every single day')
+    expect(t.passage?.current).toBe(4)
+  })
+
+  it('reading on into the new verse keeps it', () => {
+    const { t } = make()
+    t.readAhead = 5
+    say(t, 'James 1 verse 3 to 5')
+    t.feed('knowing this that the trying of your faith worketh patience')
+    speak(t, 'But let patience have her perfect work that ye may be perfect and entire')
+    t.feed('But let patience have her perfect work that ye may be perfect and entire wanting nothing')
+    t.feed('if any of you lack wisdom let him ask of God')
+    expect(t.passage?.current).toBe(5)
+  })
+})
+
+describe('short "go back"', () => {
+  for (const said of ['no go back', 'Go back.', 'okay go back please', 'come back'])
+    it(said, () => expect(findIntent(said)).toEqual({ kind: 'previous' }))
+  it('"go back to chap 2" is chapter 2', () => expect(findIntent('go back to chap 2')).toEqual({ kind: 'chapter', chapter: 2, verse: undefined }))
+  it('not a command: "we must never go back to Egypt"', () => expect(findIntent('we must never go back to Egypt')?.kind).not.toBe('previous'))
+})
+
+describe('read-ahead: commentary after a fully read verse', () => {
+  it('reading verse 3 to its last word, then explaining, brings verse 3 back', () => {
+    const { t } = make()
+    t.readAhead = 3
+    say(t, 'James 1 verse 3 to 5')
+    say(t, 'knowing this that the trying of your faith worketh patience')
+    expect(t.passage?.current).toBe(4)
+    t.feed('church let me ask you something today')
+    expect(t.passage?.current).toBe(3)
+  })
+  it('read-ahead off: the screen stays on the next verse as before', () => {
+    const { t } = make()
+    say(t, 'James 1 verse 3 to 5')
+    say(t, 'knowing this that the trying of your faith worketh patience')
+    t.feed('church let me ask you something today')
+    expect(t.passage?.current).toBe(4)
   })
 })

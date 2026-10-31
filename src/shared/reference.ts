@@ -1,4 +1,4 @@
-import { BOOKS } from './books'
+import { BOOKS, VERSES } from './books'
 
 export interface Reference { book: number; chapter: number; start?: number; end?: number }
 
@@ -22,6 +22,7 @@ Object.assign(ONES, ORDINALS)
 export function normalize(input: string): string {
   const words = input
     .toLowerCase()
+    .replace(/\bchap\b/g, 'chapter') // "go back to chap one"
     .replace(/\b(vice|versus)\b/g, 'verse') // how recognisers often hear "verse"
     .replace(/(\d+)\s*[:.]\s*(\d+)/g, '$1 verse $2')
     .replace(/[–—]/g, ' to ')
@@ -82,6 +83,11 @@ const ALIASES: Alias[] = (() => {
 const FILLER = /^(chapter|chapters|ch)$/
 const VERSE_WORDS = /^(verse|verses|vs|v)$/
 
+/** How recognisers write spoken numbers after a book name. Only read in that position. */
+const HEARD_AS_NUMBER: Record<string, string[]> = {
+  wanton: ['1', '10'], won: ['1'], wan: ['1'], ate: ['8'], tree: ['3'], tin: ['10'], sicks: ['6'], fore: ['4'], nein: ['9']
+}
+
 /**
  * Find every book+chapter(+verses) mention in a transcript chunk.
  * Accepts "John 3 verse 16", "John chapter 3 verses 16 to 18", "John 3:16-18".
@@ -99,6 +105,11 @@ export function findReferences(text: string, typed = false): Reference[] {
     if (!matched && (/^\d+$/.test(tokens[i + 1] ?? '') || FILLER.test(tokens[i + 1] ?? ''))) matched = fuzzyBook(tokens[i], tokens[i - 1], FILLER.test(tokens[i + 1] ?? ''))
     if (!matched) continue
     let j = i + matched.len
+    // Numbers the recogniser writes as words, right after a book: "John Wanton" is John 1:10, "Psalm won" is Psalm 1
+    for (let k = j; k <= j + 1 && k < tokens.length; k++) {
+      const n = HEARD_AS_NUMBER[tokens[k]]
+      if (n && (k === j || /^\d+$/.test(tokens[k - 1]))) tokens.splice(k, 1, ...n)
+    }
     if (tokens[j] === 'for' && /^\d+$/.test(tokens[j + 1] ?? '')) tokens[j] = '4' // "first John for eight" is 1 John 4:8
     const num = (k: number) => /^\d+$/.test(tokens[k] ?? '')
     let chapter: number
@@ -107,10 +118,16 @@ export function findReferences(text: string, typed = false): Reference[] {
     else if (num(j)) { chapter = +tokens[j++]; if (FILLER.test(tokens[j] ?? '')) j++ }
     else continue
     const ref: Reference = { book: matched.book, chapter }
+    const split = chapter > VERSES[matched.book].length ? splitNumber(matched.book, tokens[j - 1]) : undefined
     // "and verse 6", "from verse 6", "starting at verse 6"
     let v = j
     while (/^(and|from|at|starting|beginning|reading|in)$/.test(tokens[v] ?? '')) v++
-    if (VERSE_WORDS.test(tokens[v] ?? '') && num(v + 1)) {
+    if (split) {
+      // "John 1010" is how the transcript often writes "John ten ten"
+      ref.chapter = split.chapter
+      ref.start = split.verse
+      if (/^(to|through|till|until|thru)$/.test(tokens[j] ?? '') && num(j + 1)) { ref.end = +tokens[j + 1]; j += 2 }
+    } else if (VERSE_WORDS.test(tokens[v] ?? '') && num(v + 1)) {
       ref.start = +tokens[v + 1]
       j = v + 2
       if (/^(to|through|till|until|thru)$/.test(tokens[j] ?? '') && num(j + 1)) { ref.end = +tokens[j + 1]; j += 2 }
@@ -123,6 +140,15 @@ export function findReferences(text: string, typed = false): Reference[] {
     i = j - 1
   }
   return refs
+}
+
+/** Splits "1010" into chapter 10 verse 10, "316" into 3:16, "119105" into 119:105: the first split that exists in this book. */
+function splitNumber(book: number, digits: string): { chapter: number; verse: number } | undefined {
+  for (let k = 1; k < digits.length; k++) {
+    if (digits[k] === '0') continue
+    const chapter = +digits.slice(0, k), verse = +digits.slice(k)
+    if (chapter >= 1 && verse <= (VERSES[book][chapter - 1] ?? 0)) return { chapter, verse }
+  }
 }
 
 function editDistance(a: string, b: string): number {

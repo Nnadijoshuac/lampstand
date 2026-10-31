@@ -597,3 +597,43 @@ input:focus, select:focus, button:focus { outline: none; }
 /* Previews: the slide is laid out at the projector's size inside .screen-canvas, then scaled down (ScreenFrame). */
 .screen-frame { position: absolute; inset: 0; overflow: hidden; }
 .screen-canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; container-type: size; }
+
+/* Settings, Audio */
+.gain-ctl { display: flex; align-items: center; gap: 12px; min-width: 240px; }
+.gain-ctl > :first-child { flex: 1; }
+
+/* Settings rows: the control never shrinks, the words wrap instead */
+.setrow { gap: 28px; }
+.setrow > :first-child { flex: 1 1 auto; min-width: 0; }
+.setrow > :not(:first-child) { flex: 0 0 auto; }
+
+/* Level meter: a green, yellow and red scale revealed by the level, with a peak line */
+.lvl { position: relative; display: block; overflow: hidden; background: color-mix(in srgb, var(--fg) 8%, transparent); border-radius: 999px; }
+.lvl-fill { position: absolute; left: 0; bottom: 0; top: 0; width: 0; overflow: hidden; border-radius: inherit; }
+.lvl-scale { position: absolute; inset: 0; width: var(--lvl-w); background: linear-gradient(90deg, #2fbf71 0%, #57d16b 52%, #e8d44d 72%, #f0a23a 86%, #ec4f43 100%); }
+.lvl-peak { position: absolute; top: 0; bottom: 0; width: 2px; left: 0; background: #e8f5ec; border-radius: 1px; opacity: 0; transition: opacity .3s, background .2s; box-shadow: 0 0 6px rgba(255,255,255,.35); }
+.lvl-peak.hot { background: #ff6a5c; box-shadow: 0 0 8px rgba(255,90,80,.6); }
+.level-bar { width: 260px; height: 10px; --lvl-w: 260px; box-shadow: inset 0 1px 2px rgba(0,0,0,.35); }
+/* vertical, inside the Listen button */
+.lvl.v { width: 4px; height: 14px; border-radius: 2px; }
+.lvl.v .lvl-fill { top: auto; right: 0; width: auto; height: 0; }
+.lvl.v .lvl-scale { inset: auto 0 0 0; height: 14px; width: auto; background: linear-gradient(0deg, #2fbf71 0%, #57d16b 52%, #e8d44d 72%, #f0a23a 86%, #ec4f43 100%); }
+.lvl.v .lvl-peak { left: 0; right: 0; top: auto; width: auto; height: 2px; bottom: 0; }
+.btn .meter.lvl { background: color-mix(in srgb, var(--fg) 14%, transparent); }
+
+/* Dropdown */
+.sel { position: relative; min-width: 220px; max-width: 300px; }
+.sel-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--fg) 4%, transparent); color: var(--fg); font-size: 13px; text-align: left; transition: border-color .2s, background .2s; }
+.sel-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sel-btn svg { flex: none; opacity: .6; transition: transform .25s cubic-bezier(.3,.7,.2,1); }
+.sel-btn:hover { border-color: color-mix(in srgb, var(--fg) 30%, transparent); }
+.sel.open .sel-btn { border-color: var(--fg); }
+.sel.open .sel-btn svg { transform: rotate(180deg); }
+.sel-list { position: absolute; z-index: 50; top: calc(100% + 6px); right: 0; min-width: 100%; max-width: 380px; max-height: 280px; overflow-y: auto; padding: 5px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel); box-shadow: 0 18px 50px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.25); animation: sel-in .18s cubic-bezier(.3,.7,.2,1); transform-origin: top right; }
+@keyframes sel-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }
+.sel-list button { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 0; border-radius: 6px; background: none; color: var(--fg); font-size: 13px; text-align: left; }
+.sel-list button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sel-list button:hover { background: color-mix(in srgb, var(--fg) 8%, transparent); }
+.sel-list button.on { font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .sel-list { animation: none; } }

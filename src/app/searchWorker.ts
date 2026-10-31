@@ -1,7 +1,12 @@
 import { pipeline, env } from '@huggingface/transformers'
+// The ONNX runtime ships inside the app. Left to itself, transformers.js fetches it from cdn.jsdelivr.net,
+// which fails offline, and Lampstand must work with no internet at all.
+import ortMjs from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url'
+import ortWasm from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url'
 env.allowLocalModels = true
 env.allowRemoteModels = false
 env.localModelPath = '/models/'
+if (env.backends.onnx.wasm) env.backends.onnx.wasm.wasmPaths = { mjs: ortMjs, wasm: ortWasm }
 
 let embed: any
 const device = 'wasm' // the WebGPU runtime needs extra files; WASM is fast enough for these small models

@@ -1,5 +1,6 @@
 import { parseBib, type BibleModule } from '@shared/bib'
 import { BOOKS } from '@shared/books'
+import { PlainError } from '@shared/plainError'
 import type { VerseLookup } from '@shared/tracker'
 import { extractBibFromInstaller, isJetDb } from '@shared/nsis'
 import { isLampBible, parseLampBible, type CatalogEntry } from '@shared/lampBible'
@@ -48,14 +49,14 @@ export class Library {
 
   /** Download a translation from the online catalogue (the Lampstand website) and add it. */
   async importFromCatalog(entry: CatalogEntry, base: string): Promise<BibleModule> {
-    if (!entry.file) throw new Error('not hosted by Lampstand')
+    if (!entry.file) throw new PlainError('This translation is not hosted by Lampstand')
     const r = await fetch(base + entry.file)
-    if (!r.ok) throw new Error(`download failed (${r.status})`)
+    if (!r.ok) throw new PlainError('The download did not finish. Check the internet connection and try again')
     return this.keep(parseLampBible(await r.json()))
   }
 
   private async keep(m: BibleModule): Promise<BibleModule> {
-    if (!m.verses.length) throw new Error('No verses found in this file')
+    if (!m.verses.length) throw new PlainError('No verses found in this file')
     this.add(m)
     await idb.set('module:' + m.short, m)
     const saved = new Set((await idb.get<string[]>('modules')) ?? [])

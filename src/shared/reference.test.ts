@@ -87,3 +87,20 @@ describe('heard in a recorded service', () => {
   it('"for samuel sixteen eighteen"', () => expect(findReferences('please everybody turn with me for samuel sixteen eighteen')[0]).toEqual({ book: 8, chapter: 16, start: 18 }))
   it('"for John 3:16" stays John', () => expect(findReferences('for John 3:16 says')[0]).toEqual({ book: 42, chapter: 3, start: 16 }))
 })
+
+describe('chapter and verse run together in the transcript', () => {
+  it('"John 1010" is John 10:10', () => expect(findReferences('John 1010')[0]).toEqual({ book: 42, chapter: 10, start: 10 }))
+  it('"John 316" is John 3:16', () => expect(findReferences('John 316')[0]).toEqual({ book: 42, chapter: 3, start: 16 }))
+  it('"Romans 828" is Romans 8:28', () => expect(findReferences('Romans 828')[0]).toEqual({ book: 44, chapter: 8, start: 28 }))
+  it('"Psalm 231" is Psalm 23:1, since Psalm 2 has no verse 31', () => expect(findReferences('Psalm 231')[0]).toEqual({ book: 18, chapter: 23, start: 1 }))
+  it('"Psalm 119105" is Psalm 119:105', () => expect(findReferences('Psalm 119105')[0]).toEqual({ book: 18, chapter: 119, start: 105 }))
+  it('keeps the range: "John 1010 to 12"', () => expect(findReferences('John 1010 to 12')[0]).toEqual({ book: 42, chapter: 10, start: 10, end: 12 }))
+  it('a real chapter stays a chapter: "Psalm 150"', () => expect(findReferences('Psalm 150')[0]).toEqual({ book: 18, chapter: 150 }))
+})
+
+describe('numbers heard as words after a book', () => {
+  it('"John Wanton" is John 1:10', () => expect(findReferences('John Wanton.')[0]).toEqual({ book: 42, chapter: 1, start: 10 }))
+  it('"John won ten" is John 1:10', () => expect(findReferences('john won ten')[0]).toEqual({ book: 42, chapter: 1, start: 10 }))
+  it('"Romans ate twenty eight" is Romans 8:28', () => expect(findReferences('Romans ate twenty eight')[0]).toEqual({ book: 44, chapter: 8, start: 28 }))
+  it('leaves ordinary speech alone', () => expect(findReferences('he won the battle')).toEqual([]))
+})

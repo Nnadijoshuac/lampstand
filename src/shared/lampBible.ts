@@ -9,6 +9,7 @@
  * light markup as Bible Show (<span class="jesus">…</span> for the words of Jesus). Built by scripts/build-bibles.py.
  */
 import type { BibleModule } from './bib'
+import { PlainError } from './plainError'
 
 export interface LampBible {
   format: 'lampstand-bible'
@@ -52,9 +53,9 @@ export function isLampBible(bytes: Uint8Array): boolean {
 
 export function parseLampBible(json: unknown): BibleModule {
   const d = json as Partial<LampBible>
-  if (d?.format !== 'lampstand-bible' || !Array.isArray(d.books)) throw new Error('Not a Lampstand Bible file')
-  if ((d.version ?? 1) > 1) throw new Error('This translation needs a newer Lampstand')
-  if (!d.short || !d.name) throw new Error('The file has no translation name')
+  if (d?.format !== 'lampstand-bible' || !Array.isArray(d.books)) throw new PlainError('Not a Lampstand Bible file')
+  if ((d.version ?? 1) > 1) throw new PlainError('This translation needs a newer Lampstand')
+  if (!d.short || !d.name) throw new PlainError('The file has no translation name')
   const verses: BibleModule['verses'] = []
   d.books.slice(0, 66).forEach((chapters, book) =>
     (chapters ?? []).forEach((list, ci) =>
