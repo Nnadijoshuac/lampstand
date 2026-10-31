@@ -74,9 +74,11 @@ export function useUpdates() {
       await invoke('download_models', { url: m.url, signature: m.signature, size: m.size })
       setModels(undefined)
     } catch (e) {
+      if (String(e).includes('paused')) { setModels((s) => s && { ...s, busy: false, error: undefined }); return }
       trace('models download failed: ' + String(e)); setModels((s) => s && { ...s, busy: false, error: /disk/i.test(String(e)) ? 'Not enough disk space to unpack the models' : 'The download stopped. Press Download again and it continues where it left off' })
     } finally { clearInterval(poll) }
   }, [check])
 
-  return { update, updating, install, models, getModels }
+  const pauseModels = useCallback(async () => { await (await core())('models_pause') }, [])
+  return { update, updating, install, models, getModels, pauseModels }
 }

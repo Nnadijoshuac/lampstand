@@ -35,6 +35,10 @@ fn system32(exe: &str) -> PathBuf {
     PathBuf::from(std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".into())).join("System32").join(exe)
 }
 
+/// The download in progress, so it can be paused (it continues from where it stopped next time).
+static RUNNING: std::sync::Mutex<Option<std::process::Child>> = std::sync::Mutex::new(None);
+static PAUSED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 /// curl comes with Windows 10 and 11, follows GitHub's redirect and never serves a cached copy.
 fn download(url: &str, to: &Path, resume: bool) -> bool {
     let mut cmd = Command::new(system32("curl.exe"));
@@ -42,7 +46,23 @@ fn download(url: &str, to: &Path, resume: bool) -> bool {
     if resume {
         cmd.args(["-C", "-"]);
     }
-    cmd.arg("-o").arg(to).arg(url).creation_flags(NO_WINDOW).status().map_or(false, |s| s.success())
+    PAUSED.store(false, std::sync::atomic::Ordering::SeqCst);
+    let Ok(child) = cmd.arg("-o").arg(to).arg(url).creation_flags(NO_WINDOW).spawn() else { return false };
+    *RUNNING.lock().unwrap() = Some(child);
+    loop {
+        let done = RUNNING.lock().unwrap().as_mut().map(|c| c.try_wait());
+        match done {
+            Some(Ok(Some(status))) => { RUNNING.lock().unwrap().take(); return status.success() }
+            Some(Ok(None)) => std::thread::sleep(std::time::Duration::from_millis(300)),
+            _ => { RUNNING.lock().unwrap().take(); return false }
+        }
+    }
+}
+
+/// Stops the models download. What has arrived is kept, and the next Download continues from there.
+pub fn pause() {
+    PAUSED.store(true, std::sync::atomic::Ordering::SeqCst);
+    if let Some(c) = RUNNING.lock().unwrap().as_mut() { let _ = c.kill(); }
 }
 
 fn ours(url: &str) -> Result<(), String> {
@@ -117,6 +137,7 @@ pub fn fetch_models(url: &str, signature: &str, size: u64) -> Result<(), String>
         let _ = std::fs::remove_file(&zip);
     }
     if progress() < size && !download(url, &zip, true) {
+        if PAUSED.load(std::sync::atomic::Ordering::SeqCst) { return Err("paused".into()); }
         return Err("The download stopped. Press Download again and it continues where it left off".into());
     }
     if let Err(e) = verify(&zip, signature) {

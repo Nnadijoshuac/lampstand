@@ -160,7 +160,9 @@ export function App() {
   const [status, setStatus] = useState('Loading scripture…')
   const [searchStatus, setSearchStatus] = useState('')
   const [listening, setListening] = useState(false)
-  const { update, updating, install, models, getModels } = useUpdates()
+  const { update, updating, install, models, getModels, pauseModels } = useUpdates()
+  /** "Not now" on the listening download: hidden until they press Listen. */
+  const [modelsLater, setModelsLater] = useSaved<boolean>('sf-models-later', false)
   const [level, setLevel] = useState(0)
   const [modelPct, setModelPct] = useState<number | null>(null)
   const [command, setCommand] = useState('')
@@ -694,6 +696,7 @@ export function App() {
 
   async function toggleListen() {
     if (listening) { listenerRef.current?.stop(); setListening(false); setLevel(0); return }
+    if (models && !models.busy) { setModelsLater(false); setMsg('Download the listening pack first'); return }
     try {
       if (!listenerRef.current) {
         setStatus('Loading speech model…')
@@ -1093,19 +1096,26 @@ export function App() {
         <button className={'btn live ' + (live ? 'on' : '')} onClick={() => setLive(!live)}>{live ? 'Live' : 'Blank'}</button>
         <WindowControls />
       </header>
-      {models && (
-        <div className="models-bar">
-          <b>One more step</b>
-          <span>Lampstand needs its speech and AI models to listen. About {((models.size || 1.6e9) / 1e9).toFixed(1)} GB, downloaded once.</span>
-          {models.busy || models.got > 0 ? (
-            <span className="models-progress"><i style={{ width: (models.size ? Math.min(100, (models.got / models.size) * 100) : 0) + '%' }} /></span>
-          ) : null}
-          {models.busy
-            ? <span className="muted">{models.size ? Math.floor((models.got / models.size) * 100) : 0}%{models.got >= models.size && models.size ? ', unpacking' : ''}</span>
-            : <button className="mini-btn" onClick={() => void getModels()}>{models.got > 0 ? 'Continue download' : 'Download'}</button>}
-          {models.error && <span className="err">{models.error}</span>}
-        </div>
-      )}
+      {models && (!modelsLater || models.busy) && (() => {
+        const pct = models.size ? Math.min(100, Math.floor((models.got / models.size) * 100)) : 0
+        const gb = ((models.size || 1.6e9) / 1e9).toFixed(1)
+        const unpacking = models.busy && models.size > 0 && models.got >= models.size
+        return (
+          <div className="models-bar">
+            <b>Turn on listening</b>
+            <span>{models.busy ? (unpacking ? 'Setting up…' : `Downloading ${pct}%`) : models.got > 0 ? `Paused at ${pct}%` : `One-time download (${gb} GB)`}</span>
+            {(models.busy || models.got > 0) && <span className="models-progress"><i style={{ width: pct + '%' }} /></span>}
+            <span className="grow" />
+            {models.busy
+              ? (!unpacking && <button className="mini-btn ghost" onClick={() => void pauseModels()}>Pause</button>)
+              : <>
+                  <button className="mini-btn primary" onClick={() => { setModelsLater(false); void getModels() }}>{models.got > 0 ? 'Continue' : 'Download'}</button>
+                  <button className="mini-btn ghost" onClick={() => setModelsLater(true)}>Not now</button>
+                </>}
+            {models.error && <span className="err">{models.error}</span>}
+          </div>
+        )
+      })()}
 
       {/* Live stays mounted while other pages are open, so returning to it never re-lays out the widgets. */}
       {(

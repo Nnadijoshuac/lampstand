@@ -112,6 +112,11 @@ async fn download_models(app: tauri::AppHandle, url: String, signature: String, 
 }
 
 #[tauri::command]
+fn models_pause() {
+    update::pause();
+}
+
+#[tauri::command]
 fn models_progress() -> u64 {
     update::progress()
 }
@@ -194,7 +199,7 @@ pub fn run() {
             start_engines(app.handle());
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![stt_status, stt_transcribe, ai_port, log_line, debug_feed, open_site, install_update, download_models, models_progress, feed_start, feed_push])
+        .invoke_handler(tauri::generate_handler![stt_status, stt_transcribe, ai_port, log_line, debug_feed, open_site, install_update, download_models, models_progress, models_pause, feed_start, feed_push])
         .build(tauri::generate_context!())
         .expect("error while building Lampstand")
         .run(|app, event| {
