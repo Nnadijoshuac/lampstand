@@ -208,7 +208,7 @@ export default function App() {
               <a href={REPO_URL + '#build-from-source'} className="group flex items-baseline justify-between rounded-2xl border border-[var(--line)] px-7 py-5 text-[var(--dim)] transition hover:text-[var(--fg)]">
                 <span>On a Mac or Linux? You can build it from the source today.</span><Arrow />
               </a>
-              <p className="px-1 text-xs text-[var(--muted)]">By downloading you agree to the <a href="#/legal" className="underline hover:text-[var(--fg)]">terms of use</a>. Lampstand is free, with no warranty, and what it hears stays on your computer.</p>
+              <p className="px-1 text-xs text-[var(--muted)]">By downloading Lampstand, you agree to its <a href="#/legal" className="underline hover:text-[var(--fg)]">terms of use</a>. It is provided free of charge and without warranty.</p>
               <div className="mt-6">
                 <div className="text-[13px] font-medium uppercase tracking-[0.2em] text-[var(--muted)]">Every version</div>
                 <ul className="mt-3 divide-y divide-[var(--line)] border-y border-[var(--line)]">
@@ -281,7 +281,7 @@ export default function App() {
         </div>
         <p className="mx-auto flex max-w-[1400px] flex-wrap gap-x-5 gap-y-1 px-5 pb-10 text-xs text-[var(--muted)] sm:px-10">
           <a href="#/legal" className="underline hover:text-[var(--fg)]">Privacy, terms and credits</a>
-          <span>Free, with no warranty. Lampstand is not affiliated with Bible Show. Bible Show is a trademark of its owner.</span>
+          <span>Provided free of charge and without warranty. Lampstand is not affiliated with Bible Show. Bible Show is a trademark of its owner.</span>
         </p>
       </footer>
     </div>
