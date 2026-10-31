@@ -8,7 +8,7 @@ import Wordmark from './Wordmark'
 import Demo from './Demo'
 import Moment from './Moment'
 import Translations from './Translations'
-import { DOWNLOAD_SIZE, EXE_SIZE, EXE_URL, REPO_URL, ZIP_URL } from './links'
+import { DOWNLOAD_SIZE, EXE_SIZE, EXE_URL, REPO_URL, VERSION, VERSIONS, ZIP_URL } from './links'
 import { useRoute } from './route'
 import { count } from './count'
 
@@ -188,12 +188,12 @@ export default function App() {
                 <SpotlightCard theme={light ? 'light' : 'dark'} spotlightColor={light ? 'rgba(184,137,46,0.2)' : 'rgba(243,226,184,0.16)'} className="rounded-2xl p-7">
                   <div className="flex items-baseline justify-between gap-6">
                     <div>
-                      <div className="text-sm text-[var(--dim)]">Windows 10 and 11 · 64-bit</div>
+                      <div className="text-sm text-[var(--dim)]">Version {VERSION} · Windows 10 and 11 · 64-bit</div>
                       <div className="mt-2 text-2xl font-semibold tracking-tight">Download for Windows</div>
                     </div>
                     <div className="text-2xl"><Arrow /></div>
                   </div>
-                  <div className="mt-6 text-sm text-[var(--muted)]">{EXE_SIZE}. On first start it downloads the speech and AI models (1.5 GB), and picks up where it left off if the internet drops.</div>
+                  <div className="mt-6 text-sm text-[var(--muted)]">{EXE_SIZE} installer. On first start it downloads the speech and AI models (1.5 GB) once, and picks up where it left off if the internet drops. If Windows says it protected your PC, choose More info, then Run anyway.</div>
                 </SpotlightCard>
               </a>
               <a href={ZIP_URL} onClick={() => count('download-zip', true)} className="group flex items-baseline justify-between gap-6 rounded-2xl border border-[var(--line)] px-7 py-5 transition hover:border-[var(--dim)]">
@@ -206,6 +206,20 @@ export default function App() {
               <a href={REPO_URL + '#build-from-source'} className="group flex items-baseline justify-between rounded-2xl border border-[var(--line)] px-7 py-5 text-[var(--dim)] transition hover:text-[var(--fg)]">
                 <span>On a Mac or Linux? You can build it from the source today.</span><Arrow />
               </a>
+              <div className="mt-6">
+                <div className="text-[13px] font-medium uppercase tracking-[0.2em] text-[var(--muted)]">Every version</div>
+                <ul className="mt-3 divide-y divide-[var(--line)] border-y border-[var(--line)]">
+                  {VERSIONS.map((r) => (
+                    <li key={r.v}>
+                      <a href={REPO_URL + '/releases/tag/v' + r.v} onClick={() => count('release-' + r.v, true)} className="flex items-baseline gap-5 py-3 text-sm transition hover:text-[var(--fg)]">
+                        <span className="w-12 shrink-0 font-semibold tabular-nums text-[var(--fg)]">{r.v}</span>
+                        <span className="min-w-0 flex-1 text-[var(--dim)]">{r.note}</span>
+                        <span className="shrink-0 text-[var(--muted)]">{r.date}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </div>
         </section>
