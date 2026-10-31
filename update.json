@@ -1,11 +1,11 @@
 {
- "version": "1.0.4",
- "notes": "Read ahead, audio settings and gain, livestream feed for vMix and OBS, better hearing of references",
+ "version": "1.0.5",
+ "notes": "The AI joins straight after the listening download, a shorter Turn on listening bar with Pause",
  "full": false,
  "exe": {
-  "url": "https://github.com/Nnadijoshuac/lampstand/releases/download/v1.0.4/Lampstand.exe",
+  "url": "https://github.com/Nnadijoshuac/lampstand/releases/download/v1.0.5/Lampstand.exe",
   "size": 63696896,
-  "signature": "81e318432c5b10cf4845980a9cd1cf87ecd45d7ae71d82f4ff59a9e3a04a02fb6b105acca57f5741aa174a145f250a2767694a2d30c6969ff08b6816bc5ed607"
+  "signature": "a11e9dc260a513202f30ab0c181df299d088e435c211b1a1a513cd009cd1ff2fd89dc5da640b1e77ac1ce70afcfddd0a3fe933e2779d7b0ba4c418febe771605"
  },
  "models": {
   "url": "https://github.com/Nnadijoshuac/lampstand/releases/download/v1.0.3/Lampstand-1.0.3-windows.zip",
