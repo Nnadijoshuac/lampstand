@@ -45,3 +45,16 @@ Every version stays downloadable from GitHub Releases. 1.0.2's original files we
 - Next: try newer models of the same size, and keep one only if it scores higher. The test is kept so any model can be measured the same way.
 
 **The installer and models.** The installer carries only the app. The speech and AI models (1.5 GB) download once on first start and resume if the connection drops. They come from the 1.0.3 release, which also offers everything in one zip for churches with slow internet.
+
+**Release day (31 Oct, evening).**
+- 1.0.3 (with the full models zip), 1.0.4, 1.0.5 and 1.0.6 are published on GitHub Releases. The website offers the 1.0.6 installer, the full zip, and a list of every version.
+- A clean first-day test (app, settings and models removed, installer downloaded from the website) found two issues, both fixed:
+  - The AI waited for a restart after the listening download (fixed in 1.0.5).
+  - The browser-style "tauri.localhost wants to use your microphones" prompt appeared. Since 1.0.6, Lampstand asks itself, once, and the system prompt is answered for the microphone only.
+- Auto-update was tested end to end: the installed 1.0.4 showed "Update to 1.0.5", installed it, and restarted.
+- Closing the main window now also closes the projector window (1.0.6).
+- The website has a Legal page (privacy notice, terms of use, credits) written in a formal register, and a line under the Download button agreeing to the terms.
+- SmartScreen still warns on the website download. Removing that for free needs SignPath Foundation (open source only) or a Microsoft Store listing (free individual registration). Both need Joshua to apply. Two-factor authentication is now on for his GitHub account.
+- The v1.0.6 tag points at ca94272, one commit before the close fix (ae9f86d). Only the "Source code" archives on that release are affected. The release files are the final build. Moving the tag needs a force push.
+
+**To pick this up on another computer:** clone the repo, unzip `models` and `llm` from the 1.0.3 release zip into `src-tauri/`, and restore `update-key.pem` to `~/.lampstand/`. The key signs every update and is not in git.
