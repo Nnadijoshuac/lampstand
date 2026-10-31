@@ -228,6 +228,13 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building Lampstand")
         .run(|app, event| {
+            // Closing the main window closes Lampstand, projector included. Otherwise the projector window
+            // would keep the app running on the extended screen with nothing left to control it.
+            if let tauri::RunEvent::WindowEvent { label, event: tauri::WindowEvent::CloseRequested { .. }, .. } = &event {
+                if label == "main" {
+                    app.exit(0);
+                }
+            }
             if let tauri::RunEvent::Exit = event {
                 // Stop the AI server with the app.
                 app.state::<Ai>().0.lock().unwrap().take();

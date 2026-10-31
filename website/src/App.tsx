@@ -8,6 +8,7 @@ import Wordmark from './Wordmark'
 import Demo from './Demo'
 import Moment from './Moment'
 import Translations from './Translations'
+import Legal from './Legal'
 import { DOWNLOAD_SIZE, EXE_SIZE, EXE_URL, REPO_URL, VERSION, VERSIONS, ZIP_URL } from './links'
 import { useRoute } from './route'
 import { count } from './count'
@@ -174,6 +175,7 @@ export default function App() {
       )}
 
       {route === 'translations' && <main id="top"><Translations /></main>}
+      {route === 'legal' && <main id="top"><Legal /></main>}
 
       {route === 'download' && (
         <main id="top" className="pt-16">
@@ -206,6 +208,7 @@ export default function App() {
               <a href={REPO_URL + '#build-from-source'} className="group flex items-baseline justify-between rounded-2xl border border-[var(--line)] px-7 py-5 text-[var(--dim)] transition hover:text-[var(--fg)]">
                 <span>On a Mac or Linux? You can build it from the source today.</span><Arrow />
               </a>
+              <p className="px-1 text-xs text-[var(--muted)]">By downloading you agree to the <a href="#/legal" className="underline hover:text-[var(--fg)]">terms of use</a>. Lampstand is free, with no warranty, and what it hears stays on your computer.</p>
               <div className="mt-6">
                 <div className="text-[13px] font-medium uppercase tracking-[0.2em] text-[var(--muted)]">Every version</div>
                 <ul className="mt-3 divide-y divide-[var(--line)] border-y border-[var(--line)]">
@@ -276,7 +279,10 @@ export default function App() {
           <div>Made by Joshua Nnadi · MIT licence</div>
           <div className="sm:ml-auto">"Thy word is a lamp unto my feet, and a light unto my path." Psalm 119:105</div>
         </div>
-        <p className="mx-auto max-w-[1400px] px-5 pb-10 text-xs text-[var(--muted)] sm:px-10">Lampstand is not affiliated with Bible Show. Bible Show is a trademark of its owner.</p>
+        <p className="mx-auto flex max-w-[1400px] flex-wrap gap-x-5 gap-y-1 px-5 pb-10 text-xs text-[var(--muted)] sm:px-10">
+          <a href="#/legal" className="underline hover:text-[var(--fg)]">Privacy, terms and credits</a>
+          <span>Free, with no warranty. Lampstand is not affiliated with Bible Show. Bible Show is a trademark of its owner.</span>
+        </p>
       </footer>
     </div>
   )

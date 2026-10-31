@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { count } from './count'
 
-export type Route = 'home' | 'translations' | 'download'
+export type Route = 'home' | 'translations' | 'download' | 'legal'
 
 const read = (): Route => {
   const h = window.location.hash
-  return h.startsWith('#/translations') ? 'translations' : h.startsWith('#/download') ? 'download' : 'home'
+  return h.startsWith('#/translations') ? 'translations' : h.startsWith('#/download') ? 'download' : h.startsWith('#/legal') ? 'legal' : 'home'
 }
 
 /** The page in the address (#/translations, #/download). GitHub Pages serves one file, so pages live after the #. */
