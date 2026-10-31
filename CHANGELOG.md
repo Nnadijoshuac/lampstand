@@ -2,6 +2,19 @@
 
 Lampstand uses [semantic versioning](https://semver.org): 1.0.x releases fix and improve without changing how the app is used.
 
+## 1.0.4 (2026-10-31)
+
+- Read ahead (Settings, AI & Listening). Readers see the end of a verse before they say it, so the next verse goes up 3, 4 or 5 syllables early. If they stop to explain, the verse they are explaining comes back.
+- Settings, Audio. Choose the microphone or sound card, and it switches straight away. Gain up to +30 dB lifts a quiet feed for Lampstand only, without touching the livestream. Auto sets the gain from a few seconds of speech. A level meter with peak hold.
+- Ctrl + click Listen opens the audio settings.
+- Livestream feed for vMix and OBS (Settings, Livestream). The scripture, live, as a web address on the church network, with a transparent version for laying over video.
+- "John one ten", "John Wanton", "Romans ate twenty eight" and "chap two" are understood. Spelled-out translation codes are understood even with a misheard letter ("kg v" is KJV).
+- Words the recogniser invents in quiet moments are ignored. A short "go back" goes to the verse before.
+- No jump further down the chapter while the words still fit the verse being read.
+- Search by meaning works with no internet.
+- Errors are shown as plain sentences. The details go to the log.
+- A 37 MB installer. The speech and AI models download once, on first start.
+
 ## 1.0.3 (2026-10-22)
 
 - Updates itself. When a new version is out, "Update to x.y.z" appears in the top bar. One click downloads about 60 MB and restarts. It's never offered mid-sermon, and only files signed by the project are installed.
