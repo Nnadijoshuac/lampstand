@@ -651,3 +651,4 @@ html:has(.output.clear), body:has(.output.clear) { background: transparent !impo
 .models-bar .grow { flex: 1; }
 .models-bar .mini-btn { padding: 4px 12px; font-size: 12px; border-radius: 6px; }
 .models-bar .mini-btn.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 600; }
+.mini-btn.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 600; }

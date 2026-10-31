@@ -161,6 +161,9 @@ export function App() {
   const [searchStatus, setSearchStatus] = useState('')
   const [listening, setListening] = useState(false)
   const { update, updating, install, models, getModels, pauseModels } = useUpdates()
+  /** Lampstand asks for the microphone once, in its own words, before listening for the first time. */
+  const [micOk, setMicOk] = useSaved<boolean>('sf-mic-ok', false)
+  const [askMic, setAskMic] = useState(false)
   /** "Not now" on the listening download: hidden until they press Listen. */
   const [modelsLater, setModelsLater] = useSaved<boolean>('sf-models-later', false)
   const [level, setLevel] = useState(0)
@@ -694,9 +697,12 @@ export function App() {
     if (feedUrl && ready && !listening) { setMode('autopilot'); void toggleListen() }
   }, [feedUrl, ready])
 
+  const toggleListenRef = useRef<() => Promise<void>>()
+  toggleListenRef.current = toggleListen
   async function toggleListen() {
     if (listening) { listenerRef.current?.stop(); setListening(false); setLevel(0); return }
     if (models && !models.busy) { setModelsLater(false); setMsg('Download the listening pack first'); return }
+    if (!micOk) { setAskMic(true); return }
     try {
       if (!listenerRef.current) {
         setStatus('Loading speech model…')
@@ -1521,6 +1527,18 @@ export function App() {
                 <div className="setrow"><span>Restore defaults<small>Bible Show's original keys</small></span><button className="mini-btn" onClick={() => setBindings(DEFAULT_BINDINGS)}>Restore</button></div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {askMic && (
+        <div className="modal-back" onClick={() => setAskMic(false)}>
+          <div className="modal mic-ask" onClick={(e) => e.stopPropagation()}>
+            <h3>Lampstand would like to use your microphone</h3>
+            <p>To hear the sermon and put each verse up as it is preached. Nothing you say leaves this computer.</p>
+            <div className="modal-actions">
+              <button className="mini-btn ghost" onClick={() => setAskMic(false)}>Not now</button>
+              <button className="mini-btn primary" autoFocus onClick={() => { setMicOk(true); setAskMic(false); setTimeout(() => void toggleListenRef.current?.(), 0) }}>Allow</button>
+            </div>
           </div>
         </div>
       )}

@@ -2,6 +2,10 @@
 
 Lampstand uses [semantic versioning](https://semver.org): 1.0.x releases fix and improve without changing how the app is used.
 
+## 1.0.6 (2026-10-31)
+
+- The first time you press Listen, Lampstand asks for the microphone in its own words, once. The browser-style "tauri.localhost wants to use your microphones" prompt is gone.
+
 ## 1.0.5 (2026-10-31)
 
 - After the one-time listening download, the AI joins straight away. Before, it waited for Lampstand to be restarted.

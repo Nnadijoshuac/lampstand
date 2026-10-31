@@ -1,11 +1,11 @@
 {
- "version": "1.0.5",
- "notes": "The AI joins straight after the listening download, a shorter Turn on listening bar with Pause",
+ "version": "1.0.6",
+ "notes": "Lampstand asks for the microphone in its own words",
  "full": false,
  "exe": {
-  "url": "https://github.com/Nnadijoshuac/lampstand/releases/download/v1.0.5/Lampstand.exe",
-  "size": 63696896,
-  "signature": "a11e9dc260a513202f30ab0c181df299d088e435c211b1a1a513cd009cd1ff2fd89dc5da640b1e77ac1ce70afcfddd0a3fe933e2779d7b0ba4c418febe771605"
+  "url": "https://github.com/Nnadijoshuac/lampstand/releases/download/v1.0.6/Lampstand.exe",
+  "size": 63707136,
+  "signature": "85325696bd2a27b5d088bf9146d617bd72a4d730e02c6af02d257b9198b6a2953006f8cf30edd37f41ec1d5ac9f32a26bb947a91c49a69a84c9d7fa21e36ec0e"
  },
  "models": {
   "url": "https://github.com/Nnadijoshuac/lampstand/releases/download/v1.0.3/Lampstand-1.0.3-windows.zip",

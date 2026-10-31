@@ -144,6 +144,25 @@ fn ai_port(state: tauri::State<Ai>) -> Option<u16> {
     state.0.lock().unwrap().as_ref().map(|l| l.port)
 }
 
+#[cfg(windows)]
+unsafe fn allow_microphone(controller: &webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller) {
+    use webview2_com::Microsoft::Web::WebView2::Win32::*;
+    use webview2_com::PermissionRequestedEventHandler;
+    let Ok(core) = controller.CoreWebView2() else { return };
+    let handler = PermissionRequestedEventHandler::create(Box::new(|_, args| {
+        if let Some(args) = args {
+            let mut kind = COREWEBVIEW2_PERMISSION_KIND::default();
+            args.PermissionKind(&mut kind)?;
+            if kind == COREWEBVIEW2_PERMISSION_KIND_MICROPHONE {
+                args.SetState(COREWEBVIEW2_PERMISSION_STATE_ALLOW)?;
+            }
+        }
+        Ok(())
+    }));
+    let mut token = 0i64;
+    let _ = core.add_PermissionRequested(&handler, &mut token);
+}
+
 /// Bundled resources live next to the exe when installed, or in the crate folder during development.
 fn resource(app: &tauri::AppHandle, rel: &str, probe: &str) -> Option<PathBuf> {
     let mut dirs = vec![];
@@ -195,6 +214,12 @@ pub fn run() {
         .manage(Ai(Mutex::new(None)))
         .manage(feed::shared())
         .setup(|app| {
+            // Lampstand asks for the microphone in its own words (see the app), so the browser-style
+            // "tauri.localhost wants to use your microphones" prompt never appears. Microphone only.
+            #[cfg(windows)]
+            for (_, w) in app.webview_windows() {
+                let _ = w.with_webview(|wv| unsafe { allow_microphone(&wv.controller()) });
+            }
             displays::watch(app.handle());
             start_engines(app.handle());
             Ok(())
